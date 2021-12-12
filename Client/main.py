@@ -1,71 +1,85 @@
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon,QPixmap
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as Qt
+
 import sys
 
 
-class MainWindow(qtw.QWidget):
-        layout =  qtw.QGridLayout()
-        def __init__(self):
-            super().__init__()
-            self.setWindowTitle("Hangman!")
-            
+class MainWindow(qtw.QDialog):
+    
+    
+        def __init__(self, parent=None):
+            super(MainWindow, self).__init__(parent)
             self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
             self.setStyleSheet(open('stylesheet.css').read())
-            
+            self.setupUi()
+
+        
+        def setupUi(self):
+            self.resize(600, 400)
+
+            self.QtStack = qtw.QStackedWidget()
+            self.QtStack.setWindowTitle("Hangman!")
+            self.WelcomePage = qtw.QWidget()
+            self.WaitingRoom = qtw.QWidget()
             self.setWelcomePage()
+            self.QtStack.setMaximumSize(1000,500)
+            self.QtStack.resize(700,200)
+            self.QtStack.addWidget(self.WelcomePage)
+            self.QtStack.addWidget(self.WaitingRoom)
+            
+            self.QtStack.show()
+      
     
         def setWelcomePage(self):
-            self.setLayout(self.layout)
-            self.resize(500,200)
-            self.setMaximumSize(1000,500)
+            layout = qtw.QGridLayout()
+           
             
-            self.hostButton = qtw.QPushButton("I'm a host")
-            self.connectButton = qtw.QPushButton("I want to join")
-            self.ipField = qtw.QLineEdit()
-            self.ipField.setPlaceholderText("Enter ip:")
-            self.ipField.setMinimumWidth(100)
-            self.hostButton.clicked.connect(lambda :self.initWaitingWindowPlayerWindow("Waiting for Players..."))
-            self.connectButton.clicked.connect(lambda :self.initWaitingWindowPlayerWindow("Connecting..."))
-            self.layout.addWidget(self.hostButton,0,0,1,2)
-            self.layout.addWidget(self.connectButton,1,0)
-            self.layout.addWidget(self.ipField,1,1)
+            hostButton = qtw.QPushButton("I'm a host")
+            connectButton = qtw.QPushButton("I want to join")
+            ipField = qtw.QLineEdit()
+            ipField.setPlaceholderText("Enter ip:")
+            ipField.setMinimumWidth(100)
+            hostButton.clicked.connect(lambda :
+                self.initWaitingWindowPlayerWindow("Waiting for players..."))
             
+            connectButton.clicked.connect(lambda :
+                self.initWaitingWindowPlayerWindow("Connecting..."))
             
-            for id in range(self.layout.count()):
-                item = self.layout.itemAt(id).widget()
+            layout.addWidget(hostButton,0,0,1,2)
+            layout.addWidget(connectButton,1,0)
+            layout.addWidget(ipField,1,1)
+            
+            for id in range(layout.count()):
+                item = layout.itemAt(id).widget()
                 item.setSizePolicy(qtw.QSizePolicy(qtw.QSizePolicy.Ignored,
                                                 qtw.QSizePolicy.Ignored))
                 item.setMaximumHeight(100)
-            self.show()
-            
-            
-        def cleanWindow(self):
-            for id in range(self.layout.count()):
-                self.layout.itemAt(id).widget().deleteLater()
-                
-            
-     
+           
+            self.WelcomePage.setLayout(layout)
             
             
         def initWaitingWindowPlayerWindow(self,text):
-            
-            self.cleanWindow()
+            layout = qtw.QGridLayout()
             textLabel = qtw.QLabel(text)
             textLabel.setAlignment(Qt.Qt.AlignCenter)
-            self.layout.addWidget(textLabel,0,0)
+            cancelButton = qtw.QPushButton("Cancel")
             
+            layout.addWidget(textLabel,0,0)
+            layout.addWidget(cancelButton)
+            cancelButton.clicked.connect(self.goBackToWelcome)
+            self.WaitingRoom.setLayout(layout)
+            self.QtStack.setCurrentWidget(self.WaitingRoom)
             
+        def goBackToWelcome(self):
+            self.QtStack.setCurrentWidget(self.WelcomePage)
             
+            for x in self.WaitingRoom.children():
+                x.deleteLater()
             
-                
-       
-            
+          
     
-        
-
-
-
+ 
 if __name__ == '__main__':
     app = qtw.QApplication(sys.argv)
     w = MainWindow()
