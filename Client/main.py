@@ -8,6 +8,10 @@ class MainWindow(qtw.QDialog):
         life = ['./resources/'+f'life{i}.png' for i in range(5)]
         alphabet = list("abcdefghijklmnopqrstuwxyz".upper())
         lifeCounter = -len(alphabet) #buttons fire callbacks when created
+        password = "mlibuda".upper()
+        guessedpassword = ['_' for letter in password]
+        passwordLabel = 0
+        
         
         def __init__(self, parent=None):
             
@@ -53,7 +57,7 @@ class MainWindow(qtw.QDialog):
             # connectButton.clicked.connect(lambda : 
             #     self.goToWaitingRoom("Connecting...")) #TODO:Disabled for tests without networking layers
            
-            connectButton.clicked.connect(lambda : self.QtStack.setCurrentWidget(self.GameScene) )
+            connectButton.clicked.connect(lambda :self.QtStack.setCurrentWidget(self.GameScene) )
             
             layout.addWidget(hostButton,0,0,1,2)
             layout.addWidget(connectButton,1,0)
@@ -107,23 +111,24 @@ class MainWindow(qtw.QDialog):
 
             layout.addWidget(playersTable,0,0,5,2)       
             
+            self.passwordLabel = qtw.QLabel(' '.join(self.guessedpassword))
             gameMainWidget = qtw.QWidget()
             hangmanLayout = qtw.QVBoxLayout()
-            gamePasswordLabel = qtw.QLabel("mlibuda")
             self.HangmanImage.setAlignment(Qt.Qt.AlignCenter)
-            gamePasswordLabel.setAlignment(Qt.Qt.AlignCenter)
+            self.passwordLabel.setAlignment(Qt.Qt.AlignCenter)
             
             hangmanLayout.addWidget(self.HangmanImage,30)
-            hangmanLayout.addWidget(gamePasswordLabel,20)
+            hangmanLayout.addWidget(self.passwordLabel,20)
             lettersWidget = qtw.QWidget()
-            letterLayout =FlowLayout()
+            self.letterLayout =FlowLayout()
             for letter in self.alphabet:
+                
                 letterButton = LetterButton(letter)
                 letterButton.clicked.connect(self.gameLogic)
-                letterLayout.addWidget(letterButton)
+                self.letterLayout.addWidget(letterButton)
             
             self.setImage()  
-            lettersWidget.setLayout(letterLayout)
+            lettersWidget.setLayout(self.letterLayout)
             hangmanLayout.addWidget(lettersWidget,30)
             
 
@@ -136,13 +141,45 @@ class MainWindow(qtw.QDialog):
             
         def gameLogic(self):
             
-            self.lifeCounter+=1
-            if 0<=self.lifeCounter<5:
-                self.setImage(self.lifeCounter) 
+            letter = self.sender().text()
+            isAlive = 0<=self.lifeCounter<4
+            
+            if self.password!=''.join(self.guessedpassword):
                 
+                if letter in self.password and isAlive:
+                    for id in self.findAllOccurencies(letter):
+                        self.guessedpassword[id]=letter
+                        self.passwordLabel.setText(' '.join(self.guessedpassword))
+                
+                else:
+                    self.lifeCounter+=1
+                    
+                    
+                if isAlive:
+                    self.sender().deleteLater()
+                    self.setImage(self.lifeCounter)
+                    if self.lifeCounter==4:
+                        self.passwordLabel.setText(' '.join(self.guessedpassword)+"\n\nYou Lost! ;-)")
+                    
+                
+                if self.password==''.join(self.guessedpassword):
+                    self.deleteAllLetters()
+                    self.passwordLabel.setText(' '.join(self.guessedpassword)+"\n\nYou Won!")
+                
+                
+
+                    
         def setImage(self,id = 0):
             pixmap = QPixmap(self.life[id])
             self.HangmanImage.setPixmap(pixmap.scaled(256,256))
+            
+        def deleteAllLetters(self):
+            for id in range(self.letterLayout.count()):
+                self.letterLayout.itemAt(id).widget().deleteLater()
+                
+            
+        def findAllOccurencies(self,letter):
+            return [i for i, l in enumerate(self.password) if l == letter]
 
 class LetterButton(qtw.QPushButton):
     def __init__(self,text):
