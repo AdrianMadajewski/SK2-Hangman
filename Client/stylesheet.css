@@ -1,7 +1,57 @@
-QPushButton{
-    margin: 10% 10%;
+
+QLabel {
+  border: 1ps solid black;
+}
+QPushButton {
+  padding: 25px 0px;
+  border: 5px solid "#05386B";
+  color: "#05386B";
+  font-family: "Arial";
+  font-size: 25px;
+  background-color: white;
+  border-radius:50%;
+  max-height:100px;
+  min-width:100px;
+  margin:10px;
+}
+QPushButton:hover {
+  background: "#05386B";
+  color: "#E5E5E5";
+
+}
+QWidget{
+    background:#E5E5E5;
+}
+QLineEdit
+{
+    border: 5px solid "#05386B";
+    border-radius:50%;
+    color:"#05386B";
+
+}
+QLineEdit:focus
+{
+    color:"#E5E5E5";
+    background-color:"#05386B"
 }
 QLabel
 {
-    border: 1ps solid black;
+    color:"#05386B";
+}
+QTableView
+{
+  color:"#05386B";
+  background-color: #E5E5E5;
+  
+}
+QHeaderView::section {
+  color:"#05386B";
+  background-color: "#E5E5E5";
+  border: 2px solid "#05386B";
+
+  
+}
+QTableWidget QTableCornerButton::section {
+  background-color: "#E5E5E5";
+  border: 2px solid "#05386B";
 }
