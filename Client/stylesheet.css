@@ -11,8 +11,8 @@ QPushButton {
   background-color: white;
   border-radius:50%;
   max-height:100px;
-  min-width:100px;
   margin:10px;
+  padding:5px;
 }
 QPushButton:hover {
   background: "#05386B";
@@ -54,4 +54,30 @@ QHeaderView::section {
 QTableWidget QTableCornerButton::section {
   background-color: "#E5E5E5";
   border: 2px solid "#05386B";
+}
+LetterButton
+{
+  font-size:16px;
+  border: 1px solid  "#05386B";
+  border-radius: 10px;
+  padding:10px;
+
+}
+LetterButton:hover {
+  background: "#05386B";
+  color: "#E5E5E5";
+
+}
+QPushButton:pressed 
+{
+  background:"#4881b9";
+  border-color: "#4881b9";
+  
+}
+LetterButton:pressed
+{
+  background:"#4881b9";
+  border-color: "#4881b9";
+
+  
 }

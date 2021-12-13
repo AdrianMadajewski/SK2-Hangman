@@ -2,11 +2,13 @@ from PyQt5.QtGui import QIcon,QPixmap
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as Qt
 import sys
-
+from FlowLayout import FlowLayout
 
 class MainWindow(qtw.QDialog):
-    
-    
+        life = ['./resources/'+f'life{i}.png' for i in range(5)]
+        alphabet = list("abcdefghijklmnopqrstuwxyz".upper())
+        lifeCounter = -len(alphabet) #buttons fire callbacks when created
+        
         def __init__(self, parent=None):
             
             super(MainWindow, self).__init__(parent)
@@ -16,26 +18,21 @@ class MainWindow(qtw.QDialog):
         
         def setupUi(self):
             
-            self.resize(600, 400)
             self.QtStack = qtw.QStackedWidget()
             self.QtStack.setWindowTitle("Hangman!")
-            
+            self.QtStack.setMinimumSize(1000,600)
             self.WelcomeScene = qtw.QWidget()
             self.WaitingRoom = qtw.QWidget()
             self.GameScene = qtw.QWidget()
             stylesheet = open('stylesheet.css').read()
             scenes = [self.WelcomeScene,self.WaitingRoom,self.GameScene]
-            
             for scene in scenes:
                 scene.setStyleSheet(stylesheet)
                 self.QtStack.addWidget(scene)
                 
             self.setWelcomePage()
             self.initWaitingRoom()
-            
-            self.WelcomeScene.setMinimumSize(400,300)
-            self.QtStack.setMaximumSize(1000,500)
-            self.QtStack.resize(700,200)
+            self.initGameScene()
             
             self.QtStack.show()
       
@@ -55,7 +52,8 @@ class MainWindow(qtw.QDialog):
             
             # connectButton.clicked.connect(lambda : 
             #     self.goToWaitingRoom("Connecting...")) #TODO:Disabled for tests without networking layers
-            connectButton.clicked.connect(self.initGameScene)
+           
+            connectButton.clicked.connect(lambda : self.QtStack.setCurrentWidget(self.GameScene) )
             
             layout.addWidget(hostButton,0,0,1,2)
             layout.addWidget(connectButton,1,0)
@@ -89,8 +87,7 @@ class MainWindow(qtw.QDialog):
         
                            
         def initGameScene(self):
-            alphabet = list("aąbcćdeęfghijklłmnńoópqrsśtuwxyzźż".upper())
-            self.QtStack.setCurrentWidget(self.GameScene)
+            self.HangmanImage = qtw.QLabel()
             layout = qtw.QGridLayout()
             playersTable = qtw.QTableWidget()
             playersDict = {"Player1":1,"Player2":5,"p3":123,"p5":2137,"p4":12213}
@@ -110,12 +107,49 @@ class MainWindow(qtw.QDialog):
 
             layout.addWidget(playersTable,0,0,5,2)       
             
-            dummyLabel = qtw.QLabel("XD")
-            dummyLabel.setStyleSheet("background-color:red;")
-            layout.addWidget(dummyLabel,0,2,5,5)
+            gameMainWidget = qtw.QWidget()
+            hangmanLayout = qtw.QVBoxLayout()
+            gamePasswordLabel = qtw.QLabel("mlibuda")
+            self.HangmanImage.setAlignment(Qt.Qt.AlignCenter)
+            gamePasswordLabel.setAlignment(Qt.Qt.AlignCenter)
+            
+            hangmanLayout.addWidget(self.HangmanImage,30)
+            hangmanLayout.addWidget(gamePasswordLabel,20)
+            lettersWidget = qtw.QWidget()
+            letterLayout =FlowLayout()
+            for letter in self.alphabet:
+                letterButton = LetterButton(letter)
+                letterButton.clicked.connect(self.gameLogic)
+                letterLayout.addWidget(letterButton)
+            
+            self.setImage()  
+            lettersWidget.setLayout(letterLayout)
+            hangmanLayout.addWidget(lettersWidget,30)
+            
+
+            
+            gameMainWidget.setLayout(hangmanLayout)
+            # gameMainWidget.setStyleSheet("background-color:red;")
+            layout.addWidget(gameMainWidget,0,2,5,5)
+            
             self.GameScene.setLayout(layout)
             
-        
+        def gameLogic(self):
+            
+            self.lifeCounter+=1
+            if 0<=self.lifeCounter<5:
+                self.setImage(self.lifeCounter) 
+                
+        def setImage(self,id = 0):
+            pixmap = QPixmap(self.life[id])
+            self.HangmanImage.setPixmap(pixmap.scaled(256,256))
+
+class LetterButton(qtw.QPushButton):
+    def __init__(self,text):
+        super().__init__() 
+        self.setText(text)     
+        self.animateClick(1)
+
     
  
 if __name__ == '__main__':
