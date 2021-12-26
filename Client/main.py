@@ -20,8 +20,8 @@ class MainWindow(qtw.QDialog):
             self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
             self.setupUi()
             self.com = Communication()
+            #run communication in a thread
             threading.Thread(target = self.com.run).start()
-            print("dupa")
             
         
         def setupUi(self):

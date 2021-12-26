@@ -1,26 +1,19 @@
 import socket 
-import time
 import threading
 from queue import Queue
-
-
-HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
-PORT = 2137       # Port to listen on (non-privileged ports are > 1023)
 import select
 
-    
 class Communication:
     messageQueue = Queue()
     timeLimit = 5
     
-    def __init__(self,address=HOST,port=PORT,isHost=0):
+    def __init__(self,address='127.0.0.1' ,port=2137,isHost=0):
         self.address = address
         self.port = port
         self.isHost = isHost
         
         
     def listen(self,s):
-        print(s)
         while True:
                 ready_to_read, _,_=  select.select( [s],[],[],self.timeLimit)
                 if ready_to_read:
@@ -28,28 +21,30 @@ class Communication:
                     print(buf)
                 else:
                     print("timed out")
+                    #TODO: handling timeout + change time limit to 30(?)
                     
                     
     def write(self,s):
+        #it is blocking, but it blocks in a thread, so it doesnt really matter
         while True:
             s.send(self.messageQueue.get(block=True).encode("UTF-8"))
                 
 
-    def addLettertoQueue(self,letter):
-        self.messageQueue.put(letter)
+    def addTexttoQueue(self,text):
+        self.messageQueue.put(text)
         
     
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            print("socket jest")
             s.connect((self.address,self.port))
-            t1 = threading.Thread(target = self.listen,args = (s,))
-            t2 = threading.Thread(target = self.write, args = (s,))
-            t1.start()
-            t2.start()
+            readerThread = threading.Thread(target = self.listen,args = (s,))
+            writerThread = threading.Thread(target = self.write, args = (s,))
+            
+            readerThread.start()
+            writerThread.start()
         
-            t1.join()
-        # t2.join()
+            readerThread.join()
+            writerThread.join()
         
         
         
