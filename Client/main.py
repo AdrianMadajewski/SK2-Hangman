@@ -3,7 +3,8 @@ import PyQt5.QtWidgets as qtw
 import PyQt5.QtCore as Qt
 import sys
 from FlowLayout import FlowLayout
-
+from connection import Communication
+import threading
 class MainWindow(qtw.QDialog):
         life = ['./resources/'+f'life{i}.png' for i in range(5)]
         alphabet = list("abcdefghijklmnopqrstuwxyz".upper())
@@ -18,7 +19,10 @@ class MainWindow(qtw.QDialog):
             super(MainWindow, self).__init__(parent)
             self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
             self.setupUi()
-
+            self.com = Communication()
+            threading.Thread(target = self.com.run).start()
+            print("dupa")
+            
         
         def setupUi(self):
             
@@ -143,9 +147,8 @@ class MainWindow(qtw.QDialog):
             
             letter = self.sender().text()
             isAlive = 0<=self.lifeCounter<4
-            
             if self.password!=''.join(self.guessedpassword):
-                
+
                 if letter in self.password and isAlive:
                     for id in self.findAllOccurencies(letter):
                         self.guessedpassword[id]=letter
@@ -156,7 +159,10 @@ class MainWindow(qtw.QDialog):
                     
                     
                 if isAlive:
+                    
                     self.sender().deleteLater()
+                    self.com.addLettertoQueue(f"##{letter}##")
+                    
                     self.setImage(self.lifeCounter)
                     if self.lifeCounter==4:
                         self.passwordLabel.setText(' '.join(self.guessedpassword)+"\n\nYou Lost! ;-)")
