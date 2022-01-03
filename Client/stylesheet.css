@@ -9,10 +9,10 @@ QPushButton {
   font-family: "Arial";
   font-size: 25px;
   background-color: white;
-  border-radius:50%;
   max-height:100px;
-  margin:10px;
   padding:5px;
+  border: 5px solid "#05386B";
+  border-radius:50%;
 }
 QPushButton:hover {
   background: "#05386B";
@@ -29,6 +29,7 @@ QLineEdit
     color:"#05386B";
 
 }
+
 QLineEdit:focus
 {
     color:"#E5E5E5";

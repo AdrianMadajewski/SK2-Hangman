@@ -4,7 +4,7 @@ from queue import Queue
 import select
 
 class Communication:
-    messageQueue = Queue()
+    messageQueue: Queue[str] = Queue()
     timeLimit = 5
     
     def __init__(self,address='127.0.0.1' ,port=2137,isHost=0):
@@ -13,19 +13,20 @@ class Communication:
         self.isHost = isHost
         
         
-    def listen(self,s):
+    def listen(self,s:socket):
         while True:
                 ready_to_read, _,_=  select.select( [s],[],[],self.timeLimit)
                 if ready_to_read:
-                    buf = s.recv(1024)
+                    buf: bytes = s.recv(1024)
                     print(buf)
                 else:
                     print("timed out")
                     #TODO: handling timeout + change time limit to 30(?)
                     
                     
-    def write(self,s):
+    def write(self,s:socket):
         #it is blocking, but it blocks in a thread, so it doesnt really matter
+        
         while True:
             s.send(self.messageQueue.get(block=True).encode("UTF-8"))
                 
