@@ -2,6 +2,12 @@ import select
 import socket
 import threading
 from queue import Queue
+from enum import Enum
+
+class Code(Enum):
+    Initalize = 1
+    Letter = 2
+    Reconnect = 3
 
 
 class Communication:
@@ -18,7 +24,7 @@ class Communication:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
                 buf: bytes = s.recv(5)
-                print(buf)
+                
                 # handle message
             else:
                 print("timed out")
@@ -34,6 +40,7 @@ class Communication:
             message: str = self.messageQueue.get(block=True)
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
             if ready_to_write:
+                message = f'{Code.Letter.value}#{message}#!'
                 sent = s.send(message.encode("UTF-8"))
             else:
                 print("timed out")
