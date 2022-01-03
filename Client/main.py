@@ -23,9 +23,7 @@ class MainWindow(qtw.QDialog):
             super(MainWindow, self).__init__()
             self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
             self.setupUi()
-            # self.com = Communication()
-            # #run communication in a thread
-            # threading.Thread(target = self.com.run).start()
+           
             
         
         def setupUi(self):
@@ -116,7 +114,9 @@ class MainWindow(qtw.QDialog):
                 name.setText("Please enter nickname")
                 return
             #initialize comunication
-            self.com = Communication(ip=ip,port=2137,isHost=hostButton)
+            self.com = Communication(address=ip.text(),port=2137,isHost=hostButton)
+            threading.Thread(target = self.com.run).start()
+            
             
                 
         
