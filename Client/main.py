@@ -106,13 +106,13 @@ class MainWindow(qtw.QDialog):
                 ip.setText("Please enter valid ip address")
                 return
             
-            if name.text().isalnum():
-                self.WaitingRoom.findChild(qtw.QLabel).setText(text)
-                self.QtStack.setCurrentWidget(self.WaitingRoom)
-                
-            else:
+            if not(name.text().isalnum()):
                 name.setText("Please enter valid nickname")
                 return
+                
+                
+            self.WaitingRoom.findChild(qtw.QLabel).setText(text)
+            self.QtStack.setCurrentWidget(self.WaitingRoom)
             #initialize comunication
             self.com = Communication(address=ip.text(),port=2137,isHost=hostButton)
             threading.Thread(target = self.com.run).start()
