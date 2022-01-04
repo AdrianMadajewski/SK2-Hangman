@@ -4,11 +4,19 @@ import socket
 import PyQt5.QtCore as Qt
 import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIcon, QPixmap
-
 from connection import Communication
 from FlowLayout import FlowLayout
+from enum import Enum
+from connection import Message
+from typing import Type
 
 
+class Code(Enum):
+        Initalize = 1
+        Letter = 2
+        Reconnect = 3
+        
+        
 class MainWindow(qtw.QDialog):
         life = ['./resources/'+f'life{i}.png' for i in range(5)]
         alphabet = list("abcdefghijklmnopqrstuwxyz".upper())
@@ -94,9 +102,12 @@ class MainWindow(qtw.QDialog):
             cancelButton = qtw.QPushButton("Cancel")
             layout.addWidget(textLabel,0,0)
             layout.addWidget(cancelButton)
-            cancelButton.clicked.connect(lambda :self.QtStack.setCurrentWidget(self.WelcomeScene))
+            cancelButton.clicked.connect(self.cancelConnection)
             self.WaitingRoom.setLayout(layout)
             
+        def cancelConnection(self):
+            self.QtStack.setCurrentWidget(self.WelcomeScene)
+            del self.com
             
         def goToWaitingRoom(self,text:str,ip:str,name:str,hostButton = False):
             
@@ -111,12 +122,22 @@ class MainWindow(qtw.QDialog):
                 return
                 
                 
-            self.WaitingRoom.findChild(qtw.QLabel).setText(text)
-            self.QtStack.setCurrentWidget(self.WaitingRoom)
-            #initialize comunication
-            self.com = Communication(address=ip.text(),port=2137,isHost=hostButton)
-            threading.Thread(target = self.com.run).start()
             
+
+            #initialize comunication
+            self.WaitingRoom.findChild(qtw.QLabel).setText("Waiting for other players...")
+            self.QtStack.setCurrentWidget(self.WaitingRoom)
+            
+            self.com = Communication(GUIReference=self ,address=ip.text(),port=2137,isHost=hostButton)
+            threading.Thread(target = self.com.run).start()
+            msg = Message(name.text(),Code.Initalize.value)
+            
+            self.com.addTexttoQueue(msg)
+            
+
+           
+            
+
             
                 
         
@@ -175,30 +196,35 @@ class MainWindow(qtw.QDialog):
             
             letter = self.sender().text()
             isAlive = 0<=self.lifeCounter<4
-            if self.password!=''.join(self.guessedpassword):
 
-                if letter in self.password and isAlive:
+            if isAlive:
+                print("alive")
+                self.sender().deleteLater()
+                
+                if letter in self.password:
+                    self.com.addTexttoQueue(Message("1",Code.Letter.value))
+                    
                     for id in self.findAllOccurencies(letter):
                         self.guessedpassword[id]=letter
-                        self.passwordLabel.setText(' '.join(self.guessedpassword))
-                
+                        
+                    self.passwordLabel.setText(' '.join(self.guessedpassword))
+                        
+                    if self.password==''.join(self.guessedpassword):
+                        self.deleteAllLetters()
+                        self.passwordLabel.setText(' '.join(self.guessedpassword)+"\n\nYou Won!")
                 else:
+                    self.com.addTexttoQueue(Message("0",Code.Letter.value))
                     self.lifeCounter+=1
-                    
-                    
-                if isAlive:
-                    
-                    self.sender().deleteLater()
-                    self.com.addLettertoQueue(f"##{letter}##")
-                    
                     self.setImage(self.lifeCounter)
-                    if self.lifeCounter==4:
-                        self.passwordLabel.setText(' '.join(self.guessedpassword)+"\n\nYou Lost! ;-)")
                     
+                    
+                if self.lifeCounter==4:
+                    self.passwordLabel.setText(' '.join(self.guessedpassword)+"\n\nYou Lost! ;-)")
+            else:
+                self.lifeCounter+=1 #to handle click send on create
                 
-                if self.password==''.join(self.guessedpassword):
-                    self.deleteAllLetters()
-                    self.passwordLabel.setText(' '.join(self.guessedpassword)+"\n\nYou Won!")
+        
+            
                 
                 
 
@@ -222,7 +248,7 @@ class LetterButton(qtw.QPushButton):
         self.animateClick(1)
 
     
- 
+
 if __name__ == '__main__':
     app = qtw.QApplication(sys.argv)
     w = MainWindow()

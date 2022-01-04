@@ -1,31 +1,39 @@
 import select
 import socket
+import sys
 import threading
-from queue import Queue
 from enum import Enum
+from queue import Queue
+from typing import Type
 
-class Code(Enum):
-    Initalize = 1
-    Letter = 2
-    Reconnect = 3
+import PyQt5.QtCore as Qt
+import PyQt5.QtWidgets as qtw
+from PyQt5.QtGui import QIcon, QPixmap
+
+from FlowLayout import FlowLayout
 
 
 class Communication:
-    messageQueue: Queue[str] = Queue()
-    timeLimit: int = 5
+    messageQueue: "Queue[Type[Message]]" = Queue()
+    timeLimit: int = 15
+    readQueue: "Queue[Type[Message]]" = Queue()
 
-    def __init__(self, address: str = '127.0.0.1', port: int = 2137, isHost: bool = False):
+    def __init__(self, GUIReference=None, address: str = '127.0.0.1', port: int = 2137, isHost: bool = False):
         self.address: str = address
         self.port: int = port
         self.isHost: bool = isHost
+        self.GUI = GUIReference
 
     def listen(self, s: socket):
         while True:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
-                buf: bytes = s.recv(5)
-                
+                buf: bytes = s.recv(500)
+                buf = buf[:-1].decode("utf-8")
+                print(buf)
+                self.handleMessage(Message(buf))
                 # handle message
+
             else:
                 print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
@@ -40,14 +48,20 @@ class Communication:
             message: str = self.messageQueue.get(block=True)
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
             if ready_to_write:
-                message = f'{Code.Letter.value}#{message}#!'
-                sent = s.send(message.encode("UTF-8"))
+                sent = s.send(str(message).encode("UTF-8"))
             else:
                 print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
 
     def addTexttoQueue(self, text):
         self.messageQueue.put(text)
+
+    def getMessage(self) -> "Message":
+        try:
+            msg = self.readQueue.get(block=True, timeout=self.timeLimit)
+        except:
+            msg = "9##!"
+        return msg
 
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -61,5 +75,46 @@ class Communication:
             readerThread.join()
             writerThread.join()
 
+    def handleMessage(self, msg: "Message") -> None:
+        print(msg.code, type(msg.code))
+        if msg.code == 1:
+            if msg.text == "free":
+                self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+            elif msg.text == "taken":
+                self.GUI.WaitingRoom.findChild(qtw.QLabel).setText(
+                    '''This nick is taken!
+                    \nPlease connect once more with different name ;-)''')
+            else:
+                print("something broke :( CODE 1")
+
+        elif msg.code == 2:
+            pass
+
+        elif msg.code == 3:
+            pass
+
+        elif msg.code == 4:
+            pass
+
+        else:
+            print("Socket is broken")
+            exit(9)
 
 
+class Message:
+
+    def __init__(self, text: str, code=None):
+        if code:
+            self.code: int = int(code)
+            self.text: str = text
+
+        else:
+            if text and text[0].isnumeric() and text[2:-2].isalnum():
+                self.code = int(text[0])
+                self.text = text[2:-2]
+            else:
+                self.code = 9
+                self.text = ""
+
+    def __str__(self):
+        return f"{self.code}#{self.text}#!"
