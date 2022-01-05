@@ -24,6 +24,7 @@ class MainWindow(qtw.QDialog):
         password = "mlibuda".upper()
         guessedpassword = ['_' for _ in password]
         passwordLabel = 0
+        playersCount  = 0
         
         
         def __init__(self):
@@ -92,17 +93,45 @@ class MainWindow(qtw.QDialog):
                 item.setMaximumHeight(100)
            
             self.WelcomeScene.setLayout(layout)
+        
+        def setReady(self,btn:qtw.QPushButton):
+            self.ready = 1
+            btn.setDown(True)
+            btn.setStyleSheet('color: "#E5E5E5"')
+            self.com.addTexttoQueue(Message(self.ready,1)) #FIXME: READY MESSAGE TO SERVER
             
             
+        
+        def updatePlayersInfo(self):
+            if self.playersCount==1:
+                self.playersCountInfo.setText("Currently 1 player")
+            else:
+                self.playersCountInfo.setText(f"Currently {self.playersCount} players")
+                        
         def initWaitingRoom(self):
-            
+            self.ready = 0
             layout = qtw.QGridLayout()
             textLabel = qtw.QLabel()
             textLabel.setAlignment(Qt.Qt.AlignCenter)
+            playersCountLabel = qtw.QLabel("Currently 1 player")
+            self.playersCountInfo = playersCountLabel
+            playersCountLabel.setAlignment(Qt.Qt.AlignCenter)
+            
+            
+            
+            readyButton = qtw.QPushButton("I'm Ready")
+            
             cancelButton = qtw.QPushButton("Cancel")
+            self.ready = readyButton.isChecked()
+            
             layout.addWidget(textLabel,0,0)
+            layout.addWidget(playersCountLabel,1,0)
+            layout.addWidget(readyButton)
             layout.addWidget(cancelButton)
+            
+            
             cancelButton.clicked.connect(self.cancelConnection)
+            readyButton.clicked.connect(lambda: self.setReady(readyButton))
             self.WaitingRoom.setLayout(layout)
             
         def cancelConnection(self):
@@ -141,26 +170,34 @@ class MainWindow(qtw.QDialog):
             
                 
         
-        
+        def updateLeaderBoard(self):
+            items = 0
+            self.playersTable.setRowCount(0)
+            #FIXME: format score pewnie sie zmieni na cos w stylu trafione/stracone wiec klucz bedize do zmiany
+            #ale działa póki co
+            for desc, price in sorted(self.playersDict.items(),key = lambda x: -int(x[1])):
+                self.playersTable.insertRow(0)
+                name = qtw.QTableWidgetItem(desc)
+                name.setFlags(Qt.Qt.ItemFlag.ItemIsEnabled)
+                score = qtw.QTableWidgetItem(str(price))
+                score.setFlags(Qt.Qt.ItemFlag.ItemIsEnabled)                
+                self.playersTable.setItem(items, 0, name)
+                self.playersTable.setItem(items, 1, score)
                            
         def initGameScene(self):
             self.HangmanImage = qtw.QLabel()
             layout = qtw.QGridLayout()
             playersTable = qtw.QTableWidget() #Table widget IS scrollable by default
             playersDict = {"Player1":1,"Player2":5,"p3":123,"p5":2137,"p4":12213}
+            self.playersDict = playersDict
+            self.playersTable = playersTable
+            
             playersTable.setColumnCount(2)
             playersTable.setHorizontalHeaderLabels(["Name","score"])
             playersTable.verticalHeader().hide()
             playersTable.setHorizontalScrollBarPolicy(Qt.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            items = 0
-            for desc, price in playersDict.items():
-                playersTable.insertRow(items)
-                name = qtw.QTableWidgetItem(desc)
-                name.setFlags(Qt.Qt.ItemFlag.ItemIsEnabled)
-                score = qtw.QTableWidgetItem(str(price))
-                score.setFlags(Qt.Qt.ItemFlag.ItemIsEnabled)                
-                playersTable.setItem(items, 0, name)
-                playersTable.setItem(items, 1, score)
+            
+            self.updateLeaderBoard()
 
             layout.addWidget(playersTable,0,0,5,2)       
             
@@ -240,6 +277,11 @@ class MainWindow(qtw.QDialog):
             
         def findAllOccurencies(self,letter :str)->list[int]:
             return [i for i, l in enumerate(self.password) if l == letter]
+        
+        def terminate(self):
+            Qt.QCoreApplication.quit()
+            #TODO: FORCE APP TO QUIT
+            
 
 class LetterButton(qtw.QPushButton):
     def __init__(self,text : str):

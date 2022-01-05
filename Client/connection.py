@@ -26,6 +26,7 @@ class Communication:
 
     def listen(self, s: socket):
         while True:
+            print(self.GUI.ready)
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
                 buf: bytes = s.recv(500)
@@ -48,7 +49,7 @@ class Communication:
             message: str = self.messageQueue.get(block=True)
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
             if ready_to_write:
-                sent = s.send(str(message).encode("UTF-8"))
+                sent = s.send((str(message)+"\n").encode("UTF-8"))
             else:
                 print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
@@ -88,6 +89,9 @@ class Communication:
                 print("something broke :( CODE 1")
 
         elif msg.code == 2:
+            player,score = msg.text.split('SCORE')
+            self.GUI.playersDict[player] = score
+            self.GUI.updateLeaderBoard()
             pass
 
         elif msg.code == 3:
@@ -98,7 +102,10 @@ class Communication:
 
         else:
             print("Socket is broken")
-            exit(9)
+            self.GUI.terminate()
+            sys.exit(9)
+            #TODO: Handle socket error
+            
 
 
 class Message:
