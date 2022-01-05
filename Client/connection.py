@@ -14,9 +14,8 @@ from FlowLayout import FlowLayout
 
 
 class Communication:
-    messageQueue: "Queue[Type[Message]]" = Queue()
+    messageQueue: Queue = Queue()
     timeLimit: int = 15
-    readQueue: "Queue[Type[Message]]" = Queue()
 
     def __init__(self, GUIReference=None, address: str = '127.0.0.1', port: int = 2137, isHost: bool = False):
         self.address: str = address
@@ -26,12 +25,10 @@ class Communication:
 
     def listen(self, s: socket):
         while True:
-            print(self.GUI.ready)
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
                 buf: bytes = s.recv(500)
                 buf = buf[:-1].decode("utf-8")
-                print(buf)
                 self.handleMessage(Message(buf))
                 # handle message
 
@@ -65,6 +62,7 @@ class Communication:
         return msg
 
     def run(self):
+        self.messageQueue.queue.clear()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.address, self.port))
             readerThread = threading.Thread(target=self.listen, args=(s,))
