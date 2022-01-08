@@ -4,19 +4,24 @@ import sys
 import threading
 from enum import Enum
 from queue import Queue
-from typing import Type
+import PyQt5.QtCore as Qt
+import PyQt5.QtWidgets as qtw
 
+import sys
+import threading
+import socket
 import PyQt5.QtCore as Qt
 import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIcon, QPixmap
-
 from FlowLayout import FlowLayout
+from enum import Enum
+from typing import Type
 
 
 class Communication:
     messageQueue: Queue = Queue()
     timeLimit: int = 15
-
+    connectionStable:bool = True
     def __init__(self, GUIReference=None, address: str = '127.0.0.1', port: int = 2137, isHost: bool = False):
         self.address: str = address
         self.port: int = port
@@ -24,13 +29,14 @@ class Communication:
         self.GUI = GUIReference
 
     def listen(self, s: socket):
-        while True:
+        while self.connectionStable:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
                 buf: bytes = s.recv(500)
                 buf = buf[:-1].decode("utf-8")
                 self.handleMessage(Message(buf))
                 # handle message
+                
 
             else:
                 print("timed out")
@@ -42,7 +48,7 @@ class Communication:
         # theoretically it will block until it gets message from queue,
         # then it will block on select, which should respect timeout unlike get
 
-        while True:
+        while self.connectionStable:
             message: str = self.messageQueue.get(block=True)
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
             if ready_to_write:
@@ -99,9 +105,8 @@ class Communication:
             pass
 
         else:
-            print("Socket is broken")
-            self.GUI.terminate()
-            sys.exit(9)
+            self.GUI.setErrorScene()
+            self.connectionStable=False
             #TODO: Handle socket error
             
 
@@ -118,6 +123,7 @@ class Message:
                 self.code = int(text[0])
                 self.text = text[2:-2]
             else:
+                print(text)
                 self.code = 9
                 self.text = ""
 

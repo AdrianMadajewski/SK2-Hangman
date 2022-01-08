@@ -43,8 +43,10 @@ class MainWindow(qtw.QDialog):
             self.WelcomeScene = qtw.QWidget()
             self.WaitingRoom = qtw.QWidget()
             self.GameScene = qtw.QWidget()
+            self.ErorrScene = qtw.QWidget()
+            
             stylesheet = open('stylesheet.css').read()
-            scenes = [self.WelcomeScene,self.WaitingRoom,self.GameScene]
+            scenes = [self.WelcomeScene,self.WaitingRoom,self.GameScene,self.ErorrScene]
             for scene in scenes:
                 scene.setStyleSheet(stylesheet)
                 self.QtStack.addWidget(scene)
@@ -52,10 +54,15 @@ class MainWindow(qtw.QDialog):
             self.setWelcomePage()
             self.initWaitingRoom()
             self.initGameScene()
+            self.initErrorScene()
             
             self.QtStack.show()
       
     
+        def setErrorScene(self):
+            self.QtStack.setCurrentWidget(self.ErorrScene)
+            
+            
         def setWelcomePage(self):
             
             layout = qtw.QGridLayout()
@@ -134,9 +141,23 @@ class MainWindow(qtw.QDialog):
             readyButton.clicked.connect(lambda: self.setReady(readyButton))
             self.WaitingRoom.setLayout(layout)
             
+        def initErrorScene(self):
+            layout = qtw.QGridLayout()
+            textLabel = qtw.QLabel("There was problem with server.\n You can try to reconnect or go back to main menu")
+            textLabel.setAlignment(Qt.Qt.AlignCenter)
+            readyButton = qtw.QPushButton("Try to Reconnect")
+            cancelButton = qtw.QPushButton("Go Back to main menu")
+            layout.addWidget(textLabel,0,0)
+            layout.addWidget(readyButton)
+            layout.addWidget(cancelButton)
+            cancelButton.clicked.connect(self.cancelConnection)
+            readyButton.clicked.connect(lambda : print("Not Yet implemented"))
+            self.ErorrScene.setLayout(layout)
+            
         def cancelConnection(self):
             self.QtStack.setCurrentWidget(self.WelcomeScene)
-            del self.com
+            self.com.connectionStable = False
+            self.com = None
             
         def goToWaitingRoom(self,text:str,ip:str,name:str,hostButton = False):
             
@@ -150,9 +171,6 @@ class MainWindow(qtw.QDialog):
                 name.setText("Please enter valid nickname")
                 return
                 
-                
-            
-
             #initialize comunication
             self.WaitingRoom.findChild(qtw.QLabel).setText("Waiting for other players...")
             self.QtStack.setCurrentWidget(self.WaitingRoom)
@@ -164,12 +182,6 @@ class MainWindow(qtw.QDialog):
             self.com.addTexttoQueue(msg)
             
 
-           
-            
-
-            
-                
-        
         def updateLeaderBoard(self):
             items = 0
             self.playersTable.setRowCount(0)
