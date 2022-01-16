@@ -121,7 +121,10 @@ class Communication:
                             '''Someone else was playing under this nickname,
                             \nEnter your nickname or wait for the game to end''')
 
-                        
+            case 5:
+                print(msg.text)
+                self.GUI.setPassword(msg.text)   
+                                     
             case _: #default case
                 self.GUI.setErrorScene("No idea what happened")
                 self.connectionStable=False

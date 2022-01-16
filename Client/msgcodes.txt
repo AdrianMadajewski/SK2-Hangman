@@ -2,13 +2,14 @@
 2 - update score
 3 - end game
 4 - init reconenct
-
+5 - password 
 
 use case KOD 1 i 4
 
 1.gracz chce sie polaczyc i wysyla nick z kodem 1
-2.serwer odsyla id gracza, a ten je zapisuje do pliku
-3.Gracz sie łaczy
+2.serwer wysyła hasło graczowi z kodem 5
+3.serwer odsyla id gracza, a ten je zapisuje do pliku
+4.Gracz sie łaczy
 
 2.A.1 nick jest zajety, serwer wysyla informacje "taken" z kodem 1
 2.A.2 Gracz widzi informacje o błędzie i moze wrocic do lobby

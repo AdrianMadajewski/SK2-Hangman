@@ -21,7 +21,7 @@ class MainWindow(qtw.QDialog):
         life = ['./resources/'+f'life{i}.png' for i in range(5)]
         alphabet = list("abcdefghijklmnopqrstuwxyz".upper())
         lifeCounter = -len(alphabet) #buttons fire callbacks when created
-        password = "mlibuda".upper()
+        password = "_".upper()
         guessedpassword = ['_' for _ in password]
         passwordLabel = 0
         playersCount  = 0
@@ -32,6 +32,10 @@ class MainWindow(qtw.QDialog):
             super(MainWindow, self).__init__()
             self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
             self.setupUi()
+
+            
+            
+
            
             
         
@@ -294,7 +298,11 @@ class MainWindow(qtw.QDialog):
             
         def findAllOccurencies(self,letter :str)->list[int]:
             return [i for i, l in enumerate(self.password) if l == letter]
-        
+    
+        def setPassword(self,password:str):
+            self.password = password.upper()
+            self.guessedpassword = ['_' for _ in password]
+            self.passwordLabel.setText(' '.join(self.guessedpassword))        
         def terminate(self):
             Qt.QCoreApplication.quit()
             #TODO: FORCE APP TO QUIT
