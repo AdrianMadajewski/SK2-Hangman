@@ -10,7 +10,7 @@ use case KOD 1 i 4
 2.serwer odsyla id gracza, a ten je zapisuje do pliku
 3.Gracz sie łaczy
 
-2.A.1 nick jest zajety, serwer wysyla informacje "taken"
+2.A.1 nick jest zajety, serwer wysyla informacje "taken" z kodem 1
 2.A.2 Gracz widzi informacje o błędzie i moze wrocic do lobby
 
 2.B.1 Gra jest w trakcie wiec serwer odslya wiadomosc z kodem 4 i tekstem sendID
@@ -18,17 +18,19 @@ use case KOD 1 i 4
 2.B.2 Serwer przyłącza gracza jesli id sie zgadza(tresc wiadomosci "valid"),
  jesli nie(tresc wiadomosci "invalid") to gracz widzi informacje, ze ktos inny grał z tym nickiem
  i moze wrocic do lobby
+ 
+ 2.B.2.A - gracz nie ma pliku z id wiec widzi komunikat o błędzie i moze wrocic do lobby
 
 use case KOD 2
 1. serwer przysyła wiadomości o zmianie statusu dowolnego gracza w 
-dowolnej kolejności wszystim graczom,
-a Ci aktualizują ranking
+dowolnej kolejności wszystim graczom, a Ci aktualizują ranking
 
 1. Gracz wysyła 1 lub 0 w zależności od tego czy trafił w literkę i NIE nadpisuje rankingu lokalnie
 
 use case KOD 3:
 1. Serwer przesyła nick gracza, który wygrał
 2. Wszyscy gracze kończą grę i widzą komunikat w panelu gry o treści "Wygrał gracz X"
+3. Pojawia się przycisk do powrotu do głównego ekranu
 
 
 
