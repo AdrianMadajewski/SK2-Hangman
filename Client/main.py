@@ -59,8 +59,14 @@ class MainWindow(qtw.QDialog):
             self.QtStack.show()
       
     
-        def setErrorScene(self):
+        def setErrorScene(self,text:str,allowReconnect = False):
             self.QtStack.setCurrentWidget(self.ErorrScene)
+            self.ErorrScene.findChild(qtw.QLabel).setText(text)
+            if allowReconnect:
+                self.ErorrScene.findChild(qtw.QPushButton).show()
+            else:
+                self.ErorrScene.findChild(qtw.QPushButton).hide()
+            
             
             
         def setWelcomePage(self):
@@ -127,7 +133,6 @@ class MainWindow(qtw.QDialog):
             
             
             readyButton = qtw.QPushButton("I'm Ready")
-            
             cancelButton = qtw.QPushButton("Cancel")
             self.ready = readyButton.isChecked()
             

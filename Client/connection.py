@@ -12,11 +12,8 @@ import threading
 import socket
 import PyQt5.QtCore as Qt
 import PyQt5.QtWidgets as qtw
-from PyQt5.QtGui import QIcon, QPixmap
-from FlowLayout import FlowLayout
 from enum import Enum
-from typing import Type
-
+from os.path import exists
 
 class Communication:
     messageQueue: Queue = Queue()
@@ -81,33 +78,54 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
-        print(msg.code, type(msg.code))
-        if msg.code == 1:
-            if msg.text == "free":
-                self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
-            elif msg.text == "taken":
-                self.GUI.WaitingRoom.findChild(qtw.QLabel).setText(
-                    '''This nick is taken!
-                    \nPlease connect once more with different name ;-)''')
-            else:
-                print("something broke :( CODE 1")
+        match msg.code:
+            case 1:
+                match msg.text.isnumeric():
+                    case False: #message different than id, so nick is taken
+                        self.GUI.setErrorScene(
+                            '''This nick is taken!
+                            \nPlease connect once more with different name ;-)''')
+                        
+                    case True: #received id, need to save it to file
+                        self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+                        with open("id.txt","w+") as f:
+                            f.write(msg.text)
+                        
+                    case _:
+                        print("something broke :( CODE 1")
+                        
 
-        elif msg.code == 2:
-            player,score = msg.text.split('SCORE')
-            self.GUI.playersDict[player] = score
-            self.GUI.updateLeaderBoard()
-            pass
+            case 2:
+                player,score = msg.text.split('SCORE')
+                self.GUI.playersDict[player] = score
+                self.GUI.updateLeaderBoard()
 
-        elif msg.code == 3:
-            pass
+            case 3:
+                pass
 
-        elif msg.code == 4:
-            pass
+            case 4:
+                match msg.text:
+                    case "sendID":
+                        if exists("id.txt"):
+                            with open("id.txt","r+") as f:
+                                id = f.readline()
+                            self.addTexttoQueue(Message(id,4)) # send id to let server verify if i was connected
+                        else: #cant find id file
+                            self.GUI.setErrorScene("You weren't playing in this game\n Please wait for the game to end")
+                            
+                    case "valid":
+                        self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+                        
+                    case "invalid":
+                        self.GUI.setErrorScene(
+                            '''Someone else was playing under this nickname,
+                            \nEnter your nickname or wait for the game to end''')
 
-        else:
-            self.GUI.setErrorScene()
-            self.connectionStable=False
-            #TODO: Handle socket error
+                        
+            case _: #default case
+                self.GUI.setErrorScene("No idea what happened")
+                self.connectionStable=False
+                #TODO: Handle socket error
             
 
 
