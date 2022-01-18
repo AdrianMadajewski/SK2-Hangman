@@ -1,4 +1,4 @@
-CURRENT MESSAGE FORMAT: SS#C#string#
+CURRENT MESSAGE FORMAT: SSC#string#
 SS - 2 chars with size of message from first # to end
 C - 1 char for message code
 
