@@ -1,3 +1,9 @@
+CURRENT MESSAGE FORMAT: SS#C#string#
+SS - 2 chars with size of message from first # to end
+C - 1 char for message code
+
+
+
 1 - init conenction
 2 - update score
 3 - end game
