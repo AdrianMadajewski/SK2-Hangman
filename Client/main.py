@@ -85,6 +85,7 @@ class MainWindow(qtw.QDialog):
             ipField.setMinimumWidth(100)
             ipField.setAlignment(Qt.Qt.AlignCenter)
             nameField = qtw.QLineEdit()
+            nameField.setMaxLength(20) #set max name legnth to 20 chars
             nameField.setPlaceholderText("Enter nickname:")
             nameField.setMinimumWidth(100)
             nameField.setAlignment(Qt.Qt.AlignCenter)

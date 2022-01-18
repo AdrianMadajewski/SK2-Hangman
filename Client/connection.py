@@ -6,6 +6,7 @@ from enum import Enum
 from queue import Queue
 import PyQt5.QtCore as Qt
 import PyQt5.QtWidgets as qtw
+import struct
 
 import sys
 import threading
@@ -29,9 +30,14 @@ class Communication:
         while self.connectionStable:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
-                buf: bytes = s.recv(500)
-                buf = buf[:-1].decode("utf-8")
-                self.handleMessage(Message(buf))
+                siz = s.recv(2,socket.MSG_WAITALL)
+                if len(siz)!=2:
+                    print("stało sie coś bardzo złego")
+                    break
+                message = s.recv(int(struct.unpack('2s',siz)[0].decode("UTF-8"))).decode("UTF-8")
+                self.handleMessage(Message(message))
+                print(Message(message))
+                
                 # handle message
                 
 
@@ -49,7 +55,7 @@ class Communication:
             message: str = self.messageQueue.get(block=True)
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
             if ready_to_write:
-                sent = s.send((str(message)+"\n").encode("UTF-8"))
+                sent = s.send((str(message)).encode("UTF-8"))
             else:
                 print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
@@ -78,6 +84,7 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
+        
         match msg.code:
             case 1:
                 match msg.text.isnumeric():
@@ -122,7 +129,6 @@ class Communication:
                             \nEnter your nickname or wait for the game to end''')
 
             case 5:
-                print(msg.text)
                 self.GUI.setPassword(msg.text)   
                                      
             case _: #default case
@@ -140,13 +146,9 @@ class Message:
             self.text: str = text
 
         else:
-            if text and text[0].isnumeric() and text[2:-2].isalnum():
-                self.code = int(text[0])
-                self.text = text[2:-2]
-            else:
-                print(text)
-                self.code = 9
-                self.text = ""
-
+            self.code = int(text[0])
+            self.text =text[2:-1]
+        self.length = str(len(self.text)+3) #+3 because of code + 2*#
+        
     def __str__(self):
-        return f"{self.code}#{self.text}#!"
+        return f"{self.length.zfill(2)}{self.code}#{self.text}#"
