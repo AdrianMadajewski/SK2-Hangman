@@ -1,19 +1,11 @@
 import select
 import socket
-import sys
 import threading
-from enum import Enum
 from queue import Queue
-import PyQt5.QtCore as Qt
-import PyQt5.QtWidgets as qtw
-import struct
-
-import sys
 import threading
 import socket
 import PyQt5.QtCore as Qt
 import PyQt5.QtWidgets as qtw
-from enum import Enum
 from os.path import exists
 
 class Communication:
@@ -30,13 +22,15 @@ class Communication:
         while self.connectionStable:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
-                siz = s.recv(2,socket.MSG_WAITALL)
-                if len(siz)!=2:
-                    print("stało sie coś bardzo złego")
-                    break
-                message = s.recv(int(struct.unpack('2s',siz)[0].decode("UTF-8"))).decode("UTF-8")
+                msg_size = int(s.recv(2,socket.MSG_WAITALL).decode("UTF-8"))
+                print(msg_size," size")
+                
+                
+                message = s.recv(msg_size,socket.MSG_WAITALL).decode("UTF-8")
+                
+                print(list(message))
+                
                 self.handleMessage(Message(message))
-                print(Message(message))
                 
                 # handle message
                 
