@@ -1,17 +1,18 @@
 import select
 import socket
 import threading
+from os.path import exists
 from queue import Queue
-import threading
-import socket
+
 import PyQt5.QtCore as Qt
 import PyQt5.QtWidgets as qtw
-from os.path import exists
+
 
 class Communication:
     messageQueue: Queue = Queue()
     timeLimit: int = 15
-    connectionStable:bool = True
+    connectionStable: bool = True
+
     def __init__(self, GUIReference=None, address: str = '127.0.0.1', port: int = 2137, isHost: bool = False):
         self.address: str = address
         self.port: int = port
@@ -22,18 +23,16 @@ class Communication:
         while self.connectionStable:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
-                msg_size = int(s.recv(2,socket.MSG_WAITALL).decode("UTF-8"))
-                print(msg_size," size")
-                
-                
-                message = s.recv(msg_size,socket.MSG_WAITALL).decode("UTF-8")
-                
+                msg_size = int(s.recv(2, socket.MSG_WAITALL).decode("UTF-8"))
+                print(msg_size, " size")
+
+                message = s.recv(msg_size, socket.MSG_WAITALL).decode("UTF-8")
+
                 print(list(message))
-                
+
                 self.handleMessage(Message(message))
-                
+
                 # handle message
-                
 
             else:
                 print("timed out")
@@ -78,58 +77,57 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
+
         
-        match msg.code:
-            case 1:
-                match msg.text.isnumeric():
-                    case False: #message different than id, so nick is taken
-                        self.GUI.setErrorScene(
-                            '''This nick is taken!
-                            \nPlease connect once more with different name ;-)''')
-                        
-                    case True: #received id, need to save it to file
-                        self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
-                        with open("id.txt","w+") as f:
-                            f.write(msg.text)
-                        
-                    case _:
-                        print("something broke :( CODE 1")
-                        
+        if msg.code ==1:
+                    
+            if msg.text.isnumeric():  # received id, need to save it to file
+                self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+                with open("id.txt", "w+") as f:
+                    f.write(msg.text)
+            else:
+                self.GUI.setErrorScene(
+                    '''This nick is taken!
+                    \nPlease connect once more with different name ;-)''')
 
-            case 2:
-                player,score = msg.text.split('SCORE')
-                self.GUI.playersDict[player] = score
-                self.GUI.updateLeaderBoard()
 
-            case 3:
-                pass
+        elif msg.code ==2:
+            player, score = msg.text.split('SCORE')
+            self.GUI.playersDict[player] = score
+            self.GUI.updateLeaderBoard()
 
-            case 4:
-                match msg.text:
-                    case "sendID":
-                        if exists("id.txt"):
-                            with open("id.txt","r+") as f:
-                                id = f.readline()
-                            self.addTexttoQueue(Message(id,4)) # send id to let server verify if i was connected
-                        else: #cant find id file
-                            self.GUI.setErrorScene("You weren't playing in this game\n Please wait for the game to end")
-                            
-                    case "valid":
-                        self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
-                        
-                    case "invalid":
-                        self.GUI.setErrorScene(
-                            '''Someone else was playing under this nickname,
-                            \nEnter your nickname or wait for the game to end''')
+        elif msg.code ==3:
+            pass
 
-            case 5:
-                self.GUI.setPassword(msg.text)   
-                                     
-            case _: #default case
-                self.GUI.setErrorScene("No idea what happened")
-                self.connectionStable=False
-                #TODO: Handle socket error
+        elif msg.code ==4:
             
+                if msg.text == "sendID":
+                    if exists("id.txt"):
+                        with open("id.txt", "r+") as f:
+                            id = f.readline()
+                        # send id to let server verify if i was connected
+                        self.addTexttoQueue(Message(id, 4))
+                    else:  # cant find id file
+                        self.GUI.setErrorScene(
+                            "You weren't playing in this game\n Please wait for the game to end")
+
+                elif msg.text == "valid":
+                    self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+
+                elif msg.text == "invalid":
+                    self.GUI.setErrorScene(
+                        '''Someone else was playing under this nickname,
+                        \nEnter your nickname or wait for the game to end''')
+                else:
+                    print("No idea what happened")
+
+        elif msg.code == 5:
+            self.GUI.setPassword(msg.text)
+
+        else:  # default case
+            self.GUI.setErrorScene("No idea what happened")
+            self.connectionStable = False
+            # TODO: Handle socket error
 
 
 class Message:
@@ -141,8 +139,8 @@ class Message:
 
         else:
             self.code = int(text[0])
-            self.text =text[2:-1]
-        self.length = str(len(self.text)+3) #+3 because of code + 2*#
-        
+            self.text = text[2:-1]
+        self.length = str(len(self.text)+3)  # +3 because of code + 2*#
+
     def __str__(self):
         return f"{self.length.zfill(2)}{self.code}#{self.text}#"

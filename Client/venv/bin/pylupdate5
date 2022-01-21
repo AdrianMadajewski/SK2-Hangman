@@ -1,4 +1,4 @@
-#!/home/mkwarta/Studia/Sk2-Hangman/Client/venv/bin/python3.10
+#!/home/mkwarta/Studia/Sk2-Hangman/Client/venv/bin/python3.9
 # -*- coding: utf-8 -*-
 import re
 import sys
