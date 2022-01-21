@@ -11,10 +11,8 @@ from connection import Communication, Message
 from FlowLayout import FlowLayout
 
 
-class Code(Enum):
-    Initalize = 1
-    Letter = 2
-    Reconnect = 3
+
+
 
 
 class MainWindow(qtw.QDialog):
@@ -104,11 +102,10 @@ class MainWindow(qtw.QDialog):
         self.WelcomeScene.setLayout(layout)
 
     def setReady(self, btn: qtw.QPushButton):
-        self.ready = 1
         btn.setDown(True)
         btn.setStyleSheet('color: "#E5E5E5"')
         # FIXME: READY MESSAGE TO SERVER
-        self.com.addTexttoQueue(Message(self.ready, 1))
+        self.com.addTexttoQueue(Message('1', Message.ready_code))
 
     def updatePlayersInfo(self):
         if self.playersCount == 1:
@@ -178,7 +175,11 @@ class MainWindow(qtw.QDialog):
         self.com = Communication(
             GUIReference=self, address=ip.text(), port=2137, isHost=hostButton)
         threading.Thread(target=self.com.run).start()
-        msg = Message(name.text(), Code.Initalize.value)
+        if hostButton:
+            msg = Message(name.text(), Message.new_host)
+        else:
+            msg = Message(name.text(), Message.new_player)
+            
 
         self.com.addTexttoQueue(msg)
 
@@ -251,7 +252,7 @@ class MainWindow(qtw.QDialog):
             self.sender().deleteLater()
 
             if letter in self.password:
-                self.com.addTexttoQueue(Message("1", Code.Letter.value))
+                self.com.addTexttoQueue(Message("1", Message.guessed_letter))
 
                 for id in self.findAllOccurencies(letter):
                     self.guessedpassword[id] = letter
@@ -263,7 +264,7 @@ class MainWindow(qtw.QDialog):
                     self.passwordLabel.setText(
                         ' '.join(self.guessedpassword)+"\n\nYou Won!")
             else:
-                self.com.addTexttoQueue(Message("0", Code.Letter.value))
+                self.com.addTexttoQueue(Message("0", Message.guessed_letter))
                 self.lifeCounter += 1
                 self.setImage(self.lifeCounter)
 

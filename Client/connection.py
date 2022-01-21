@@ -79,7 +79,7 @@ class Communication:
     def handleMessage(self, msg: "Message") -> None:
 
         
-        if msg.code ==1:
+        if msg.code ==msg.new_player:
                     
             if msg.text.isnumeric():  # received id, need to save it to file
                 self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
@@ -89,24 +89,39 @@ class Communication:
                 self.GUI.setErrorScene(
                     '''This nick is taken!
                     \nPlease connect once more with different name ;-)''')
+        elif msg.code == msg.new_host:
+            
+            if msg.text.isnumeric():  # received id, need to save it to file
+                self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+                
+                #FIXME: Czy host musi zapisywać id? Gra bez hosta chyba powinna sie skończyć
+                # with open("id.txt", "w+") as f:
+                #     f.write(msg.text)
+            else:
+                self.GUI.setErrorScene(
+                    '''This nick is taken!
+                    \nPlease connect once more with different name ;-)''')
+        
+            
 
 
-        elif msg.code ==2:
+        elif msg.code ==msg.guessed_letter:
             player, score = msg.text.split('SCORE')
             self.GUI.playersDict[player] = score
             self.GUI.updateLeaderBoard()
 
-        elif msg.code ==3:
+        elif msg.code ==msg.winner_code:
+            #TODO: 
             pass
 
-        elif msg.code ==4:
+        elif msg.code ==msg.reconnect_code:
             
                 if msg.text == "sendID":
                     if exists("id.txt"):
                         with open("id.txt", "r+") as f:
                             id = f.readline()
                         # send id to let server verify if i was connected
-                        self.addTexttoQueue(Message(id, 4))
+                        self.addTexttoQueue(Message(id, msg.reconnect_code))
                     else:  # cant find id file
                         self.GUI.setErrorScene(
                             "You weren't playing in this game\n Please wait for the game to end")
@@ -121,7 +136,7 @@ class Communication:
                 else:
                     print("No idea what happened")
 
-        elif msg.code == 5:
+        elif msg.code == msg.new_password:
             self.GUI.setPassword(msg.text)
 
         else:  # default case
@@ -131,6 +146,15 @@ class Communication:
 
 
 class Message:
+    new_host = 1
+    new_player = 2
+    ready_code = 3
+    guessed_letter = 4
+    winner_code = 5
+    reconnect_code = 6
+    new_password = 7
+    
+    
 
     def __init__(self, text: str, code=None):
         if code:
@@ -144,3 +168,4 @@ class Message:
 
     def __str__(self):
         return f"{self.length.zfill(2)}{self.code}#{self.text}#"
+

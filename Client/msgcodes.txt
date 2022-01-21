@@ -4,40 +4,47 @@ C - 1 char for message code
 
 
 
-1 - init conenction
-2 - update score
-3 - end game
-4 - init reconenct
-5 - password 
+new_host = 1
+new_player = 2
+ready_code = 3
+guessed_letter = 4
+winner_code = 5
+reconnect_code = 6
+new_password = 7
 
-use case KOD 1 i 4
+use case KOD 1 i 6
 
 1.gracz chce sie polaczyc i wysyla nick z kodem 1
-2.serwer wysyła hasło graczowi z kodem 5
-3.serwer odsyla id gracza, a ten je zapisuje do pliku
+2.serwer wysyła hasło graczowi z kodem 7
+3.serwer odsyla id gracza, kiedy HOST określi gotowość, a gracz wchodzi do lobby
 4.Gracz sie łaczy
 
 2.A.1 nick jest zajety, serwer wysyla informacje "taken" z kodem 1
 2.A.2 Gracz widzi informacje o błędzie i moze wrocic do lobby
 
-2.B.1 Gra jest w trakcie wiec serwer odslya wiadomosc z kodem 4 i tekstem sendID
+2.B.1 Gra jest w trakcie wiec serwer odslya wiadomosc z kodem 6 i tekstem sendID
 2.B.2 Gracz wysyla swoje id 
-2.B.2 Serwer przyłącza gracza jesli id sie zgadza(tresc wiadomosci "valid"),
+2.B.2 Serwer przyłącza gracza jesli id sie zgadza(tresc wiadomosci "valid") to gracz się łączy i otrzymuje aktualizacje rankingu,
  jesli nie(tresc wiadomosci "invalid") to gracz widzi informacje, ze ktos inny grał z tym nickiem
  i moze wrocic do lobby
  
  2.B.2.A - gracz nie ma pliku z id wiec widzi komunikat o błędzie i moze wrocic do lobby
 
-use case KOD 2
-1. serwer przysyła wiadomości o zmianie statusu dowolnego gracza w 
-dowolnej kolejności wszystim graczom, a Ci aktualizują ranking
+use case KOD 4
+    1. serwer przysyła wiadomości o zmianie statusu dowolnego gracza w 
+    dowolnej kolejności wszystim graczom, a Ci aktualizują ranking
 
-1. Gracz wysyła 1 lub 0 w zależności od tego czy trafił w literkę i NIE nadpisuje rankingu lokalnie
+    1. Gracz wysyła 1 lub 0 w zależności od tego czy trafił w literkę i NIE nadpisuje rankingu lokalnie
 
-use case KOD 3:
-1. Serwer przesyła nick gracza, który wygrał
-2. Wszyscy gracze kończą grę i widzą komunikat w panelu gry o treści "Wygrał gracz X"
-3. Pojawia się przycisk do powrotu do głównego ekranu
+use case KOD 5:
+    1. Serwer przesyła nick gracza, który wygrał
+    2. Wszyscy gracze kończą grę i widzą komunikat w panelu gry o treści "Wygrał gracz X"
+    3. Pojawia się przycisk do powrotu do głównego ekranu
+
+use case kod 1:
+    1. Gracz wysyła nick z kodem 1, co przyznaje mu status hosta po stronie serwera
+    2. Gra rozpoczyna się, kiedy host kliknie przycisk gotowości - tym samym wysyła wiadomość z kodem 3
+    3. Serwer po odczytaniu gotowości hosta, rozsyła id pozostałym graczom w pokoju
 
 
 
