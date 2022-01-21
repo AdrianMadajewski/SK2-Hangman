@@ -11,6 +11,50 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <vector>
+#include <sstream>
+
+const std::vector<std::string> words{
+	"ala ma kota",
+	"super serwer",
+	"michal to debil",
+	"leniwa kurwa"
+};
+
+static std::random_device rd;
+static std::mt19937 engine(rd);
+static std::uniform_int_distribution<int> distribute(0, words.size() - 1);
+
+const int SERVER_BACKLOG = 1;
+
+enum class Code
+{
+	NEW_HOST = 1,
+	NEW_PLAYER,
+	READY,
+	GUESSED_RIGHT, 
+	WINNER,
+	RECONNECT,
+	NEW_PASSWORD,
+};
+
+struct Client
+{
+	std::string m_nickname{};
+	inline static int s_id = 0;
+	int m_guessed = 0;
+	int m_missed = 0;
+	bool is_host = true;
+
+	Client(const std::string &nickname) : m_nickname(nickname)
+	{
+		s_id++;
+	}
+};
+
+std::vector<Client*> clients(SERVER_BACKLOG);
+
+// std::vector<int> (id, punkty)
+// Client - status, nickname, id
 
 int check(int expected, const std::string &message, int compare = -1)
 {
@@ -21,41 +65,80 @@ int check(int expected, const std::string &message, int compare = -1)
 	return expected;
 }
 
+void new_host(int client_socket, std::string &data)
+{
+	// DATA TO CALA WIADOMOSC
+	
+	
+}
+
 void handle_connection(int client_socket)
 {
 	while(true)
 	{
 		// Blocking read to get size of the whole message (2 bytes max)
-		char buffer[16]{};
+		std::string message_size;
+		if(recv(client_socket, message_size.data(), 2, MSG_WAITALL) != 2)
+		{
+			std::cerr<< "Received failed" << std::endl;
+			break;
+		}
+		int message_size_int = std::stoi(message_size);
+		std::cout << message_size_int << std::endl;
+		std::string data(message_size_int + 1, ' ');
+		if(recv(client_socket, data.data(), message_size_int, MSG_WAITALL) != message_size_int)
+		{
+			std::cerr << "Received failed" << std::endl;
+			break;
+		}
+		data[message_size_int] = 0;
+
+		std::cout << "Received: " << message_size_int << " bytes: " << data.data() << std::endl;
+
+		// 40 - wielkosc nazwy uzytkownika bez \0 + 1 bo kod wiadomosci + 2 hasztagi
+
+		// data[0] - kod wiadomosci
+		// data[1] - #
+
+		// data[len] - #
+
+		Code message_code = static_cast<Code>(data[0] - '0');
+		switch(message_code)
+		{
+			case Code::NEW_HOST:
+				std::cout << "NEW_HOST" << std::endl;
+				break;
+			case Code::NEW_PLAYER:
+				std::cout << "NEW PLAYER" << std::endl;
+				break;
+			case Code::READY:
+				std::cout << "READY" << std::endl;
+				break;
+			case Code::GUESSED_RIGHT:
+				std::cout << "GUESSED_RIGHT" << std::endl;
+				break;
+			case Code::NEW_PASSWORD:
+				std::cout << "NEW_PASSWORD" << std::endl;
+				break;
+			case Code::RECONNECT:
+				std::cout << "RECONNECT" << std::endl;
+				break;
+			case Code::WINNER:
+				std::cout << "WINNER" << std::endl;
+				break;
+			default:
+				std::cerr << "ERROR: invalid message code" << std::endl;
+				break;
+		}
 		
-		// Read for 2 bytes - size of the message
-		check(read(client_socket, buffer, 2), "Read from client failed");
-		int message_size = atoi(buffer);
 
-		std::cout << "Got message size: " << message_size << std::endl;
-
-		// Read 1 byte for message code
-		memset(buffer, 0, sizeof(buffer));
-		check(read(client_socket, buffer, 1), "Read from client failed");
-		int message_code = atoi(buffer);
-
-		std::cout << "Got message code: " << message_code << std::endl;
-
-		
 
 		// Dummy send
 		// write(client_socket, "12345", 6);
 	}
+
+	close(client_socket);
 }
-
-const std::vector<std::string> words{
-	"ala ma kota",
-	"super serwer",
-	"michal to debil",
-	"leniwa kurwa"
-};
-
-const int SERVER_BACKLOG = 1;
 
 typedef struct sockaddr_in SA_IN;
 typedef struct sockaddr SA;
