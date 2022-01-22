@@ -104,16 +104,44 @@ void sendWinner(Client *winner)
 
 
 // Data is not used here (word_index trafiony, id gracza ktory trafil)
-void guessed_letter(int client_socket, const std::string &data)
+void guessed_letter(int client_socket, const char &data)
 {
 	for(auto & client : clients) {
 		if(client->m_fd == client_socket) {
 			// Ten klient trafil literke
-			client->m_guessed++;
-			std::cout << "Updated: " << client->m_nickname << " guessed count: "
+			if(data == '0') {
+				client->m_missed++;
+				std::cout << "Updated: " << client->m_nickname << " missed count: "
+				<< client->m_missed << std::endl;
+			}
+			// Ten klient trafil literke
+
+			if(data == '1') {
+				client->m_guessed++;
+				std::cout << "Updated: " << client->m_nickname << " guessed count: "
 				<< client->m_guessed << std::endl;
+			}
+				
 		}
 	}
+
+	// Send to all current ranking
+	std::string response = "4";
+	for(const auto & client : clients) {
+		response += client->m_guessed + ":" + client->m_missed;
+		int len = response.size();
+		std::string init{};
+		if(len <= 9) {
+			init = "0";
+		} else {
+			response = init + std::to_string(len) + response;
+		}
+		
+		if(send(client->m_fd, response.data(), response.size(), 0) < 0) {
+			std::cerr << "Send failed to: " << client->m_nickname << std::endl;
+		}
+	}
+	std::cout << "Send information to all players" << std::endl;
 
 	// Check for winner
 	for(const auto &client : clients) {
