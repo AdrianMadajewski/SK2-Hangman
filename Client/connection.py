@@ -25,10 +25,9 @@ class Communication:
             if ready_to_read:
                 try:
                     msg_size = int(s.recv(2, socket.MSG_WAITALL).decode("UTF-8"))
-                    print(msg_size, " size")
 
                     message = s.recv(msg_size, socket.MSG_WAITALL).decode("UTF-8")
-
+                    print(message)
                     self.handleMessage(Message(message))
                 except ValueError:
                     self.GUI.setErrorScene("Connection closed :(",True)
@@ -85,7 +84,6 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
-
         
         if msg.code ==msg.new_player:
             print(msg.text,msg.code)
