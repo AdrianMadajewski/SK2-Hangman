@@ -17,38 +17,16 @@
 #include <fstream>
 
 // File content
-std::vector<std::string> getFileContent(const std::string &filename)
-{
-	if(filename.empty() || filename.length() == 0) {
-		std::cerr << "Empty dictionary" << std::endl;
-		std::terminate();
-	}
-
-	std::vector<std::string> data{};
-	std::ifstream file(filename.c_str(), std::ios::binary);
-
-	if (!file.is_open()) {
-		std::cerr << "Couldn't find the file. Please restart." << std::endl;
-		exit(1);
-	}
-	else {
-		std::cout << "Succesfully read from words dictionary " << filename << std::endl;
-		
-		while (!file.eof()) {
-			std::string read;
-			file >> read;
-			data.emplace_back(read);
-		}
-	}
-	file.close();
-	return data;
-}
-
+std::vector<std::string> getFileContent(const std::string &filename);
 std::vector<std::string> words;
 
-static std::random_device rd;
-static std::mt19937 engine(rd());
-static std::uniform_int_distribution<int> distribute(0, words.size() - 1);
+int get_random_number(int a, int b)
+{
+	static std::random_device rd;
+	static std::mt19937 engine(rd());
+	static std::uniform_int_distribution<int> distribute(a, b);
+	return distribute(engine);
+}
 
 enum class Code
 {
@@ -83,187 +61,24 @@ int word_index = -1;
 
 std::vector<Client*> clients{};
 
+int check(int expected, const std::string &message, int compare = -1);
 
-// std::vector<int> (id, punkty)
-// Client - status, nickname, id
+void host_ready(int client_socket);
 
-int check(int expected, const std::string &message, int compare = -1)
-{
-	if(expected == compare) {
-		perror(message.c_str());
-		exit(1);
-	}
-	return expected;
-}
-
-void host_ready(int client_socket)
-{
-	static const std::string response{"013"};
-	bool host = false;
-	for(const auto client : clients) {
-		if(client->m_fd == client_socket && client->is_host == true) {
-			if(send(client->m_fd, response.data(), response.size(), 0) == -1) {
-				std::cerr << "Cannot send message to: " << client->m_nickname;
-			}
-			host = true;
-		}
-	}
-	static const std::string host_ready = "Host is ready - starting the game";
-	static const std::string no_host = "Client is not host - cannot by ready";
-	std::cout << (host ? host_ready : no_host) << std::endl;
-}
-
-void sendWinner(Client *winner)
-{	
-	std::string nick = winner->m_nickname;
-	std::string winner_message = std::to_string(nick.size() + 1) + "5" + nick;
-	for(const auto &client : clients) {
-		if(send(client->m_fd, winner_message.data(), winner_message.size(), 0) > 0) {
-		std::cout << "Winner sended to: " << client->m_nickname << std::endl;
-		return;
-	}
-	}
-
-	std::cerr << "Send winner function failed" << std::endl;
-}
-
+void sendWinner(Client *winner);
 
 // Data is not used here (word_index trafiony, id gracza ktory trafil)
-void guessed_letter(int client_socket, const char &data)
-{
-	for(auto & client : clients) {
-		if(client->m_fd == client_socket) {
-			// Ten klient trafil literke
-			if(data == '0') {
-				client->m_missed++;
-				std::cout << "Updated: " << client->m_nickname << " missed count: "
-				<< client->m_missed << std::endl;
-			}
-			// Ten klient trafil literke
+void guessed_letter(int client_socket, const char &data);
 
-			if(data == '1') {
-				client->m_guessed++;
-				std::cout << "Updated: " << client->m_nickname << " guessed count: "
-				<< client->m_guessed << std::endl;
-			}
-				
-		}
-	}
+void new_host(int &client_socket, const std::string &data);
 
-	// Send to all current ranking
-	std::string response = "4";
-	for(const auto & client : clients) {
-		response += client->m_nickname + ":" + std::to_string(client->m_guessed)
-			 + ":" + std::to_string(client->m_missed);
-		int len = response.size();
-		std::string init{};
-		if(len <= 9) {
-			init = "0";
-		} else {
-			response = init + std::to_string(len) + response;
-		}
-		
-		if(send(client->m_fd, response.data(), response.size(), 0) < 0) {
-			std::cerr << "Send failed to: " << client->m_nickname << std::endl;
-		}
-	}
-	std::cout << "Send information to all players" << std::endl;
+void invalid_nickname(int client_socket);
 
-	// Check for winner
-	for(const auto &client : clients) {
-		if(client->m_guessed == static_cast<int>(words[word_index].size()) && client->m_missed != 5) {
-			// Winner -> send info to all clients
-			sendWinner(client);
-			break;
-		}
-	}
-}
+void valid_player(Client *client);
 
-void new_host(int &client_socket, const std::string &data)
-{
-	word_index = distribute(engine);
-	Client *client = new Client(client_socket, data);
-	client->is_host = true;
-	clients.emplace_back(client);
+void reset();
 
-	std::cout << "Host: " << client->m_nickname << std::endl;
-
-	std::string message_to_host = std::to_string(static_cast<int>(Code::NEW_PASSWORD)) +
-		words[word_index] + std::to_string(client->player_id);
-	int length = message_to_host.length();
-	if(length <= 9) {
-		message_to_host = '0' + std::to_string(length) + message_to_host;
-	}
-	message_to_host = std::to_string(length) + message_to_host;
-	if(send(client_socket, message_to_host.data(), message_to_host.length(), 0) == -1)
-	{
-		std::cerr << "Send failed" << std::endl;
-		return;
-	}
-
-	std::cout << "Host response send" << std::endl;
-}
-
-void invalid_nickname(int client_socket)
-{
-	static const std::string return_message{"5taken"};
-	if(send(client_socket, return_message.data(), return_message.size(), 0) > 0) {
-		return;
-	}
-	std::cerr << "Send to failed - invalid nickname handler" << std::endl;
-}
-
-void valid_player(Client *client)
-{	
-	std::string return_message = "7" + words[word_index] + std::to_string(client->player_id);
-	if(send(client->m_fd, return_message.data(), return_message.size(), 0) > 0) {
-		return;
-	} 
-	std::cerr << "Valid player send error";
-}
-
-void reset()
-{
-	// New game
-	for(auto &clients : clients) {
-		clients->m_guessed = 0;
-		clients->m_missed = 0;
-	}
-	word_index = distribute(engine);
-	int message_length = words[word_index].length() + 1;
-	std::string response = std::to_string(message_length) + "7" + words[word_index];
-
-	// Send new password to all clients
-	for(const auto &client : clients) {
-		if(send(client->m_fd, response.data(), response.size(), 0) < 0) {
-			std::cerr << "Error in reset" << std::endl;
-		}
-	}
-	std::cout << "Reset completed - all players in lobby" << std::endl;
-}
-
-void new_player(int client_socket, const std::string &nickname)
-{
-	// Data -> nickname
-	for(const auto client : clients) {
-		// Causes segmentation fault
-		if(client->m_nickname == nickname) {
-			// Send error back to client
-			std::cout << "Found player with the same nickname: " << client->m_nickname << std::endl;
-			invalid_nickname(client_socket);
-			return;
-		}
-	}
-
-	// Add new player
-	Client *client = new Client(client_socket, nickname);
-	std::cout << "New player: id: " << client->player_id << std::endl;
-	clients.emplace_back(client);
-
-	// Send information back to player
-	valid_player(client);
-	delete client;
-}
+void new_player(int client_socket, const std::string &nickname);
 
 void* handle_connection(void* p_client_socket)
 {
@@ -413,3 +228,207 @@ int main(int argc, char **argv)
 }
 
 
+// File content
+std::vector<std::string> getFileContent(const std::string &filename)
+{
+	if(filename.empty() || filename.length() == 0) {
+		std::cerr << "Empty dictionary" << std::endl;
+		std::terminate();
+	}
+
+	std::vector<std::string> data{};
+	std::ifstream file(filename.c_str(), std::ios::binary);
+
+	if (!file.is_open()) {
+		std::cerr << "Couldn't find the file. Please restart." << std::endl;
+		exit(1);
+	}
+	else {
+		std::cout << "Succesfully read from words dictionary " << filename << std::endl;
+		
+		while (!file.eof()) {
+			std::string read;
+			file >> read;
+			data.emplace_back(read);
+		}
+	}
+	file.close();
+	return data;
+}
+
+int check(int expected, const std::string &message, int compare)
+{
+	if(expected == compare) {
+		perror(message.c_str());
+		exit(1);
+	}
+	return expected;
+}
+
+void host_ready(int client_socket)
+{
+	static const std::string response{"013"};
+	bool host = false;
+	for(const auto client : clients) {
+		if(client->m_fd == client_socket && client->is_host == true) {
+			if(send(client->m_fd, response.data(), response.size(), 0) == -1) {
+				std::cerr << "Cannot send message to: " << client->m_nickname;
+			}
+			host = true;
+		}
+	}
+	static const std::string host_ready = "Host is ready - starting the game";
+	static const std::string no_host = "Client is not host - cannot by ready";
+	std::cout << (host ? host_ready : no_host) << std::endl;
+}
+
+void sendWinner(Client *winner)
+{	
+	std::string nick = winner->m_nickname;
+	std::string winner_message = std::to_string(nick.size() + 1) + "5" + nick;
+	for(const auto &client : clients) {
+		if(send(client->m_fd, winner_message.data(), winner_message.size(), 0) > 0) {
+		std::cout << "Winner sended to: " << client->m_nickname << std::endl;
+		return;
+	}
+	}
+
+	std::cerr << "Send winner function failed" << std::endl;
+}
+
+// Data is not used here (word_index trafiony, id gracza ktory trafil)
+void guessed_letter(int client_socket, const char &data)
+{
+	for(auto & client : clients) {
+		if(client->m_fd == client_socket) {
+			// Ten klient trafil literke
+			if(data == '0') {
+				client->m_missed++;
+				std::cout << "Updated: " << client->m_nickname << " missed count: "
+				<< client->m_missed << std::endl;
+			}
+			// Ten klient trafil literke
+
+			if(data == '1') {
+				client->m_guessed++;
+				std::cout << "Updated: " << client->m_nickname << " guessed count: "
+				<< client->m_guessed << std::endl;
+			}
+				
+		}
+	}
+
+	// Send to all current ranking
+	std::string response = "4";
+	for(const auto & client : clients) {
+		response += client->m_nickname + ":" + std::to_string(client->m_guessed)
+			 + ":" + std::to_string(client->m_missed);
+		int len = response.size();
+		std::string init{};
+		if(len <= 9) {
+			init = "0";
+		} else {
+			response = init + std::to_string(len) + response;
+		}
+		
+		if(send(client->m_fd, response.data(), response.size(), 0) < 0) {
+			std::cerr << "Send failed to: " << client->m_nickname << std::endl;
+		}
+	}
+	std::cout << "Send information to all players" << std::endl;
+
+	// Check for winner
+	for(const auto &client : clients) {
+		if(client->m_guessed == static_cast<int>(words[word_index].size()) && client->m_missed != 5) {
+			// Winner -> send info to all clients
+			sendWinner(client);
+			break;
+		}
+	}
+}
+
+void new_host(int &client_socket, const std::string &data)
+{
+	word_index = get_random_number(0, words.size());
+	Client *client = new Client(client_socket, data);
+	client->is_host = true;
+	clients.emplace_back(client);
+
+	std::cout << "Host: " << client->m_nickname << std::endl;
+
+	std::string message_to_host = std::to_string(static_cast<int>(Code::NEW_PASSWORD)) +
+		words[word_index] + std::to_string(client->player_id);
+	int length = message_to_host.length();
+	if(length <= 9) {
+		message_to_host = '0' + std::to_string(length) + message_to_host;
+	}void new_host(int &client_socket, const std::string &data);
+	message_to_host = std::to_string(length) + message_to_host;
+	if(send(client_socket, message_to_host.data(), message_to_host.length(), 0) == -1)
+	{
+		std::cerr << "Send failed" << std::endl;
+		return;
+	}
+
+	std::cout << "Host response send" << std::endl;
+}
+
+void invalid_nickname(int client_socket)
+{
+	static const std::string return_message{"5taken"};
+	if(send(client_socket, return_message.data(), return_message.size(), 0) > 0) {
+		return;
+	}
+	std::cerr << "Send to failed - invalid nickname handler" << std::endl;
+}
+
+void valid_player(Client *client)
+{	
+	std::string return_message = "7" + words[word_index] + std::to_string(client->player_id);
+	if(send(client->m_fd, return_message.data(), return_message.size(), 0) > 0) {
+		return;
+	} 
+	std::cerr << "Valid player send error";
+}
+
+void reset()
+{
+	// New game
+	for(auto &clients : clients) {
+		clients->m_guessed = 0;
+		clients->m_missed = 0;
+	}
+	word_index = get_random_number(0, words.size());
+	int message_length = words[word_index].length() + 1;
+	std::string response = std::to_string(message_length) + "7" + words[word_index];
+
+	// Send new password to all clients
+	for(const auto &client : clients) {
+		if(send(client->m_fd, response.data(), response.size(), 0) < 0) {
+			std::cerr << "Error in reset" << std::endl;
+		}
+	}
+	std::cout << "Reset completed - all players in lobby" << std::endl;
+}
+
+void new_player(int client_socket, const std::string &nickname)
+{
+	// Data -> nickname
+	for(const auto client : clients) {
+		// Causes segmentation fault
+		if(client->m_nickname == nickname) {
+			// Send error back to client
+			std::cout << "Found player with the same nickname: " << client->m_nickname << std::endl;
+			invalid_nickname(client_socket);
+			return;
+		}
+	}
+
+	// Add new player
+	Client *client = new Client(client_socket, nickname);
+	std::cout << "New player: id: " << client->player_id << std::endl;
+	clients.emplace_back(client);
+
+	// Send information back to player
+	valid_player(client);
+	delete client;
+}
