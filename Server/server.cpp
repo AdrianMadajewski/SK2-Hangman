@@ -21,10 +21,8 @@ const std::vector<std::string> words{
 };
 
 static std::random_device rd;
-static std::mt19937 engine(rd);
+static std::mt19937 engine(rd());
 static std::uniform_int_distribution<int> distribute(0, words.size() - 1);
-
-const int SERVER_BACKLOG = 1;
 
 enum class Code
 {
@@ -39,19 +37,26 @@ enum class Code
 
 struct Client
 {
+	int m_fd;
 	std::string m_nickname{};
-	inline static int s_id = 0;
+	static int player_id;
 	int m_guessed = 0;
 	int m_missed = 0;
-	bool is_host = true;
+	bool is_host = false;
 
-	Client(const std::string &nickname) : m_nickname(nickname)
+	Client(int fd, const std::string &nickname) : m_nickname(nickname) 
 	{
-		s_id++;
+		m_fd = fd;
+		player_id++;
 	}
 };
 
-std::vector<Client*> clients(SERVER_BACKLOG);
+int Client::player_id = 0;
+
+int generated_word_index = -1;
+
+std::vector<Client*> clients{};
+
 
 // std::vector<int> (id, punkty)
 // Client - status, nickname, id
@@ -65,11 +70,29 @@ int check(int expected, const std::string &message, int compare = -1)
 	return expected;
 }
 
-void new_host(int client_socket, std::string &data)
+void new_host(int &client_socket, const std::string &data)
 {
+	std::cout << "new_host start" << std::endl;
 	// DATA TO CALA WIADOMOSC
-	
-	
+	generated_word_index = distribute(engine);
+	std::cout << "generated" << std::endl;
+	clients.emplace_back(new Client(client_socket, data));
+	std::cout << "new client created" << std::endl;
+
+	std::string message_to_host = std::to_string(static_cast<int>(Code::NEW_PASSWORD)) +
+		words[generated_word_index];
+	int length = message_to_host.length();
+	if(length <= 9) {
+		message_to_host = '0' + std::to_string(length) + message_to_host;
+	}
+	message_to_host = std::to_string(length) + message_to_host;
+	std::cout << "message constructed" << std::endl;
+	if(send(client_socket, message_to_host.data(), message_to_host.length(), 0) == -1)
+	{
+		std::cerr << "Send failed" << std::endl;
+		return;
+	}
+	std::cout << "message sended" << std::endl;
 }
 
 void handle_connection(int client_socket)
@@ -85,15 +108,13 @@ void handle_connection(int client_socket)
 		}
 		int message_size_int = std::stoi(message_size);
 		std::cout << message_size_int << std::endl;
-		std::string data(message_size_int + 1, ' ');
+		std::string data(message_size_int, '*');
 		if(recv(client_socket, data.data(), message_size_int, MSG_WAITALL) != message_size_int)
 		{
 			std::cerr << "Received failed" << std::endl;
 			break;
 		}
-		data[message_size_int] = 0;
-
-		std::cout << "Received: " << message_size_int << " bytes: " << data.data() << std::endl;
+		std::cout << "Received: " << message_size_int << " bytes: " << data << std::endl;
 
 		// 40 - wielkosc nazwy uzytkownika bez \0 + 1 bo kod wiadomosci + 2 hasztagi
 
@@ -103,10 +124,15 @@ void handle_connection(int client_socket)
 		// data[len] - #
 
 		Code message_code = static_cast<Code>(data[0] - '0');
+		std::cout << static_cast<int>(message_code) << std::endl;
+		std::string message = data.erase(0, 1);
+		std::cout << message.length() << std::endl;
+		std::cout << message << std::endl;
 		switch(message_code)
 		{
 			case Code::NEW_HOST:
 				std::cout << "NEW_HOST" << std::endl;
+				new_host(client_socket, message);
 				break;
 			case Code::NEW_PLAYER:
 				std::cout << "NEW PLAYER" << std::endl;
@@ -131,8 +157,6 @@ void handle_connection(int client_socket)
 				break;
 		}
 		
-
-
 		// Dummy send
 		// write(client_socket, "12345", 6);
 	}
@@ -195,8 +219,8 @@ int main(int argc, char **argv)
 	std::cout << "Binded socket to address: " << argv[1] << " on port: " << argv[2] << std::endl;
 
 	freeaddrinfo(resolved);
-	check(listen(server_socket, SERVER_BACKLOG), "Listen failed");
-	std::cout << "Listening with max backlog: " << SERVER_BACKLOG << std::endl;
+	check(listen(server_socket, SOMAXCONN), "Listen failed");
+	std::cout << "Listening with max backlog: " << SOMAXCONN << std::endl;
 
 	while(true)
 	{
