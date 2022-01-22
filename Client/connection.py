@@ -38,7 +38,7 @@ class Communication:
 
 
             else:
-                print("timed out")
+                print("timedd out")
                 # TODO: handling timeout + change time limit to 30(?)
 
     def write(self, s: socket):
