@@ -37,10 +37,10 @@ enum class Code
 
 struct Client
 {
-	int m_fd;
+	int m_fd{};
 	std::string m_nickname{};
 	static int new_player_id;
-	int player_id;
+	int player_id{};
 	int m_guessed = 0;
 	int m_missed = 0;
 	bool is_host = false;
@@ -79,7 +79,7 @@ void new_host(int &client_socket, const std::string &data)
 	Client *client = new Client(client_socket, data);
 	client->is_host = true;
 	std::cout << client->new_player_id << std::endl;
-	clients.emplace_back();
+	clients.emplace_back(client);
 	std::cout << "new client created" << std::endl;
 
 	std::string message_to_host = std::to_string(static_cast<int>(Code::NEW_PASSWORD)) +
@@ -116,7 +116,7 @@ void valid_player(Client *client)
 	std::cerr << "Valid player send error";
 }
 
-void new_player(int client_socket, std::string &nickname)
+void new_player(int client_socket, const std::string &nickname)
 {
 	// Data -> nickname
 	for(const auto client : clients) {
