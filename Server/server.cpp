@@ -12,14 +12,39 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <sstream>
+#include <map>
 #include <pthread.h>
+#include <fstream>
 
-const std::vector<std::string> words{
-	"ala ma kota",
-	"super serwer",
-	"michal to debil",
-	"leniwa kurwa"
-};
+// File content
+std::vector<std::string> getFileContent(const std::string &filename)
+{
+	if(filename.empty() || filename.length() == 0) {
+		std::cerr << "Empty dictionary" << std::endl;
+		std::terminate();
+	}
+
+	std::vector<std::string> data{};
+	std::ifstream file(filename.c_str(), std::ios::binary);
+
+	if (!file.is_open()) {
+		std::cerr << "Couldn't find the file. Please restart." << std::endl;
+		exit(1);
+	}
+	else {
+		std::cout << "Succesfully read from words dictionary " << filename << std::endl;
+		
+		while (!file.eof()) {
+			std::string read;
+			file >> read;
+			data.emplace_back(read);
+		}
+	}
+	file.close();
+	return data;
+}
+
+std::vector<std::string> words;
 
 static std::random_device rd;
 static std::mt19937 engine(rd());
@@ -128,7 +153,8 @@ void guessed_letter(int client_socket, const char &data)
 	// Send to all current ranking
 	std::string response = "4";
 	for(const auto & client : clients) {
-		response += client->m_guessed + ":" + client->m_missed;
+		response += client->m_nickname + ":" + std::to_string(client->m_guessed)
+			 + ":" + std::to_string(client->m_missed);
 		int len = response.size();
 		std::string init{};
 		if(len <= 9) {
@@ -299,11 +325,13 @@ typedef struct sockaddr SA;
 
 int main(int argc, char **argv)
 {
-	if(argc != 3)
+	if(argc != 4)
 	{
-		std::cout << "Usage: <ip> <port>" << std::endl;
+		std::cout << "Usage: <ip> <port> <file>" << std::endl;
 		return 1; 
 	}
+
+	words = getFileContent(argv[3]);
 
 	in_addr addr;
 	if(!inet_aton(argv[1], &addr))
