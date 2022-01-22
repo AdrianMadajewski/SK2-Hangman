@@ -276,7 +276,7 @@ void* handle_connection(void* p_client_socket)
 				host_ready(client_socket);
 				break;
 			case Code::GUESSED_RIGHT:
-				guessed_letter(client_socket, message);
+				guessed_letter(client_socket, message[0]);
 				break;
 			case Code::NEW_PASSWORD:
 				reset();
