@@ -1,8 +1,6 @@
-CURRENT MESSAGE FORMAT: SSC#string#
-SS - 2 chars with size of message from first # to end
+CURRENT MESSAGE FORMAT: SSCstring
+SS - 2 chars with size of message C + string
 C - 1 char for message code
-
-
 
 new_host = 1
 new_player = 2
@@ -10,43 +8,48 @@ ready_code = 3
 guessed_letter = 4
 winner_code = 5
 reconnect_code = 6
-new_password = 7
+reset_code = 7
 
-use case KOD 1 i 6
+CASE NEW_HOST : 1
+    REQUEST: 
+        Serwer orzymuje informacje z kodem 1, dostaje od gracza nickname, czyni go hostem
+            061siema -> 06 (dlugosc), 1 (kod), siema (nickname)
+    RESPONSE: 
+        Serwer odsyla do klienta wiadomosc z kodem 1 (NEW_HOST) oraz wiadomoscia
+            0{dlugosc_hasla + 2}1{haslo}{unikalne_id}
+CASE NEW_PLAYER : 2
+    REQUEST:
+        Client jak gdyby wchodzi do lobby, otrzymuje to samo co w przypadku hosta
+            062siema -> 06 (dlugosc), 2 (kod), siema (nickname)
+    RESPONSE:
+        Serwer wysyla potwierdzenie otrzymania nicku i wysyla globalne haslo do uzytkownika z jego id
+            0{dlugosc_hasla + 2}7(kod){haslo}{unikalne_id}
+CASE READY_CODE : 3
+    REQUEST:
+        Ustalony HOST zglasza gotowosc do gry
+            01.3 -> 01 to dlugosc wiadomosc, 3 to kod do startu gry
+    RESPONSE:
+        Serwer odsyla do WSZYSTKICH klientow wiadomosc z kodem START
+        01.3 -> wielkosc_wiadomosci.ready 
+CASE GUESSED_LETTER : 4
+    REQUEST:
+        Jeden z graczy trafil literke (lista jest przechowywana po obydwu stronach)
+        tutaj serwer musi sprawdzac czy slowo nie zostalo odgadniete przez tego wlasnie klienta
+        check(klient.m_guessed == len(haslo))
+        x.4.indeks.id -> x = len(message).indeks_trafionej_litery.id_gracza_ktory_trafil
+    RESPONSE:
+        Jesli klient trafil wszystkie literki to wysylany jest komunikat o zwyciezcy do kazdego gracza
+        x.5.id -> x = len(RESPONSE).5(winner_code).id_gracza_ktory_wygral
+        Gracze jednak nadal sa w lobby - wracaja do niego gdy ktos wygra
 
-1.gracz chce sie polaczyc i wysyla nick z kodem 1
-2.serwer wysyła hasło graczowi z kodem 7
-3.serwer odsyla id gracza, kiedy HOST określi gotowość, a gracz wchodzi do lobby
-4.Gracz sie łaczy
-
-2.A.1 nick jest zajety, serwer wysyla informacje "taken" z kodem 1
-2.A.2 Gracz widzi informacje o błędzie i moze wrocic do lobby
-
-2.B.1 Gra jest w trakcie wiec serwer odslya wiadomosc z kodem 6 i tekstem sendID
-2.B.2 Gracz wysyla swoje id 
-2.B.2 Serwer przyłącza gracza jesli id sie zgadza(tresc wiadomosci "valid") to gracz się łączy i otrzymuje aktualizacje rankingu,
- jesli nie(tresc wiadomosci "invalid") to gracz widzi informacje, ze ktos inny grał z tym nickiem
- i moze wrocic do lobby
- 
- 2.B.2.A - gracz nie ma pliku z id wiec widzi komunikat o błędzie i moze wrocic do lobby
-
-use case KOD 4
-    1. serwer przysyła wiadomości o zmianie statusu dowolnego gracza w 
-    dowolnej kolejności wszystim graczom, a Ci aktualizują ranking
-
-    1. Gracz wysyła 1 lub 0 w zależności od tego czy trafił w literkę i NIE nadpisuje rankingu lokalnie
-
-use case KOD 5:
-    1. Serwer przesyła nick gracza, który wygrał
-    2. Wszyscy gracze kończą grę i widzą komunikat w panelu gry o treści "Wygrał gracz X"
-    3. Pojawia się przycisk do powrotu do głównego ekranu
-
-use case kod 1:
-    1. Gracz wysyła nick z kodem 1, co przyznaje mu status hosta po stronie serwera
-    2. Gra rozpoczyna się, kiedy host kliknie przycisk gotowości - tym samym wysyła wiadomość z kodem 3
-    3. Serwer po odczytaniu gotowości hosta, rozsyła id pozostałym graczom w pokoju
-
-
-
-
-
+        Jesli klient trafil tylko litere ale gra nadal nie zostala wygrana to nic nie robimy
+        (Klient ma swoja stacjonarna wersje gry i wie, ze ta wlasnie litere trafil)
+    
+CASE RESET_CODE : 7
+    REQUEST:
+        Poprzednia gra zostala zakonczona zatem gracze wracaja do "lobby"
+        Klient zazadal wystartowania nowej gry z wiadomoscia
+        01.7
+    RESPONSE:
+        Serwer wysyla do klienta nowe haslo
+        len.7.nowe_haslo

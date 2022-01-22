@@ -361,7 +361,7 @@ void new_host(int &client_socket, const std::string &data)
 	int length = message_to_host.length();
 	if(length <= 9) {
 		message_to_host = '0' + std::to_string(length) + message_to_host;
-	}void new_host(int &client_socket, const std::string &data);
+	}
 	message_to_host = std::to_string(length) + message_to_host;
 	if(send(client_socket, message_to_host.data(), message_to_host.length(), 0) == -1)
 	{
