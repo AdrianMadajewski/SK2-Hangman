@@ -39,21 +39,21 @@ struct Client
 {
 	int m_fd;
 	std::string m_nickname{};
-	static int player_id;
+	static int new_player_id;
+	int player_id;
 	int m_guessed = 0;
 	int m_missed = 0;
 	bool is_host = false;
 
-	Client(int fd, const std::string &nickname) : m_nickname(nickname) 
+	Client(int fd, const std::string &nickname) : m_nickname(nickname), m_fd(fd) 
 	{
-		m_fd = fd;
-		player_id++;
+		player_id = new_player_id++;
 	}
 };
 
-int Client::player_id = 0;
+int Client::new_player_id = 0;
 
-int generated_word_index = -1;
+int word_index = -1;
 
 std::vector<Client*> clients{};
 
@@ -74,13 +74,16 @@ void new_host(int &client_socket, const std::string &data)
 {
 	std::cout << "new_host start" << std::endl;
 	// DATA TO CALA WIADOMOSC
-	generated_word_index = distribute(engine);
+	word_index = distribute(engine);
 	std::cout << "generated" << std::endl;
-	clients.emplace_back(new Client(client_socket, data));
+	Client *client = new Client(client_socket, data);
+	client->is_host = true;
+	std::cout << client->new_player_id << std::endl;
+	clients.emplace_back();
 	std::cout << "new client created" << std::endl;
 
 	std::string message_to_host = std::to_string(static_cast<int>(Code::NEW_PASSWORD)) +
-		words[generated_word_index];
+		words[word_index] + std::to_string(client->player_id);
 	int length = message_to_host.length();
 	if(length <= 9) {
 		message_to_host = '0' + std::to_string(length) + message_to_host;
@@ -93,6 +96,53 @@ void new_host(int &client_socket, const std::string &data)
 		return;
 	}
 	std::cout << "message sended" << std::endl;
+}
+
+void invalid_nickname(int client_socket)
+{
+	static const std::string return_message{"taken1"};
+	if(send(client_socket, return_message.data(), return_message.size(), 0) > 0) {
+		return;
+	}
+	std::cerr << "Send to failed - invalid nickname handler" << std::endl;
+}
+
+void valid_player(Client *client)
+{	
+	std::string return_message = "7" + words[word_index] + std::to_string(client->player_id);
+	if(send(client->m_fd, return_message.data(), return_message.size(), 0) > 0) {
+		return;
+	} 
+	std::cerr << "Valid player send error";
+}
+
+void new_player(int client_socket, std::string &nickname)
+{
+	// Data -> nickname
+	for(const auto client : clients) {
+		// Causes segmentation fault
+		if(client->m_nickname == nickname) {
+			// Send error back to client
+			std::cout << "Found player with the same nickname: " << client->m_nickname << std::endl;
+			invalid_nickname(client_socket);
+			return;
+		}
+	}
+
+	// Add new player
+	Client *client = new Client(client_socket, nickname);
+	std::cout << "New player: id: " << client->player_id << std::endl;
+	clients.emplace_back(client);
+
+	// Send information back to player
+	valid_player(client);
+}
+
+
+
+std::string checkForNickname(int client_socket, std::string &data)
+{
+	return std::string();
 }
 
 void handle_connection(int client_socket)
@@ -124,10 +174,9 @@ void handle_connection(int client_socket)
 		// data[len] - #
 
 		Code message_code = static_cast<Code>(data[0] - '0');
-		std::cout << static_cast<int>(message_code) << std::endl;
+		std::cout << "Error code: " << static_cast<int>(message_code) << std::endl;
 		std::string message = data.erase(0, 1);
-		std::cout << message.length() << std::endl;
-		std::cout << message << std::endl;
+		std::cout << "Message: " << message << " [" << message.length() << "]" << std::endl;
 		switch(message_code)
 		{
 			case Code::NEW_HOST:
@@ -136,6 +185,7 @@ void handle_connection(int client_socket)
 				break;
 			case Code::NEW_PLAYER:
 				std::cout << "NEW PLAYER" << std::endl;
+				new_player(client_socket, message);
 				break;
 			case Code::READY:
 				std::cout << "READY" << std::endl;
@@ -249,3 +299,5 @@ int main(int argc, char **argv)
 	shutdown(server_socket, SHUT_RDWR);
 	return 0;
 }
+
+
