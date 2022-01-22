@@ -22,6 +22,7 @@ class MainWindow(qtw.QDialog):
     password = "_".upper()
     guessedpassword = ['_' for _ in password]
     passwordLabel = 0
+    connected = False
     playersCount = 0
 
     def __init__(self):
@@ -82,9 +83,9 @@ class MainWindow(qtw.QDialog):
         hostButton.clicked.connect(lambda:
                                    self.goToWaitingRoom("Waiting for players...", ipField, nameField, hostButton=True))
 
-        # connectButton.clicked.connect(lambda :
-        #    self.goToWaitingRoom("Waiting for players...",ipField,nameField,hostButton=False)) #TODO:Disabled for tests without networking layers
-
+        connectButton.clicked.connect(lambda :
+           self.goToWaitingRoom("Waiting for players...",ipField,nameField,hostButton=False)) 
+        
         connectButton.clicked.connect(
             lambda: self.QtStack.setCurrentWidget(self.GameScene))
 
@@ -156,6 +157,7 @@ class MainWindow(qtw.QDialog):
         self.com = None
 
     def goToWaitingRoom(self, text: str, ip: str, name: str, hostButton=False):
+        
 
         try:
             socket.inet_aton(ip.text())
@@ -168,20 +170,26 @@ class MainWindow(qtw.QDialog):
             return
 
         # initialize comunication
-        self.WaitingRoom.findChild(qtw.QLabel).setText(
-            "Waiting for other players...")
+        
         self.QtStack.setCurrentWidget(self.WaitingRoom)
 
         self.com = Communication(
             GUIReference=self, address=ip.text(), port=2137, isHost=hostButton)
+        
         threading.Thread(target=self.com.run).start()
+        
+    
+        self.WaitingRoom.findChild(qtw.QLabel).setText(
+        "Waiting for other players...")
         if hostButton:
             msg = Message(name.text(), Message.new_host)
         else:
             msg = Message(name.text(), Message.new_player)
-            
-
+        
         self.com.addTexttoQueue(msg)
+            
+        
+        
 
     def updateLeaderBoard(self):
         items = 0
@@ -234,14 +242,37 @@ class MainWindow(qtw.QDialog):
 
         self.setImage()
         lettersWidget.setLayout(self.letterLayout)
+        
         hangmanLayout.addWidget(lettersWidget, 30)
 
         gameMainWidget.setLayout(hangmanLayout)
+        
         # gameMainWidget.setStyleSheet("background-color:red;")
         layout.addWidget(gameMainWidget, 0, 2, 5, 5)
-
+        goBackToLobby = qtw.QPushButton("Go Back!")
+        goBackToLobby.clicked.connect(self.goBack)
+        layout.addWidget(goBackToLobby, 6, 6, 1, 1)
+        
         self.GameScene.setLayout(layout)
 
+    def goBack(self):
+        self.QtStack.setCurrentWidget(self.WaitingRoom)
+
+        self.guessedpassword = ['_' for _ in self.password]
+        self.passwordLabel.setText(' '.join(self.guessedpassword))
+        self.passwordLabel
+
+        self.playersTable = {}
+        self.lifeCounter = -len(self.alphabet)
+        self.deleteAllLetters()
+        for letter in self.alphabet:
+
+            letterButton = LetterButton(letter)
+            letterButton.clicked.connect(self.gameLogic)
+            self.letterLayout.addWidget(letterButton)
+        self.setImage()
+        
+        
     def gameLogic(self):
 
         letter = self.sender().text()

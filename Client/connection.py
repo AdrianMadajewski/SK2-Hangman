@@ -23,16 +23,20 @@ class Communication:
         while self.connectionStable:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
-                msg_size = int(s.recv(2, socket.MSG_WAITALL).decode("UTF-8"))
-                print(msg_size, " size")
+                try:
+                    msg_size = int(s.recv(2, socket.MSG_WAITALL).decode("UTF-8"))
+                    print(msg_size, " size")
 
-                message = s.recv(msg_size, socket.MSG_WAITALL).decode("UTF-8")
+                    message = s.recv(msg_size, socket.MSG_WAITALL).decode("UTF-8")
 
-                print(list(message))
+                    self.handleMessage(Message(message))
+                except ValueError:
+                    self.GUI.setErrorScene("Connection closed :(",True)
+                    self.connectionStable = False
+                    
 
-                self.handleMessage(Message(message))
+                
 
-                # handle message
 
             else:
                 print("timed out")
@@ -66,7 +70,11 @@ class Communication:
     def run(self):
         self.messageQueue.queue.clear()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((self.address, self.port))
+            try:
+                s.connect((self.address, self.port))
+            except ConnectionRefusedError:
+                self.GUI.setErrorScene("Couldn't connect to the server",True)
+                return
             readerThread = threading.Thread(target=self.listen, args=(s,))
             writerThread = threading.Thread(target=self.write, args=(s,))
 
@@ -80,15 +88,18 @@ class Communication:
 
         
         if msg.code ==msg.new_player:
-                    
+            print(msg.text,msg.code)
             if msg.text.isnumeric():  # received id, need to save it to file
-                self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
                 with open("id.txt", "w+") as f:
                     f.write(msg.text)
             else:
                 self.GUI.setErrorScene(
                     '''This nick is taken!
                     \nPlease connect once more with different name ;-)''')
+        elif msg.code ==msg.ready_code:
+            self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+            
+            
         elif msg.code == msg.new_host:
             
             if msg.text.isnumeric():  # received id, need to save it to file
@@ -163,9 +174,10 @@ class Message:
 
         else:
             self.code = int(text[0])
-            self.text = text[2:-1]
-        self.length = str(len(self.text)+3)  # +3 because of code + 2*#
+            self.text = text[1:]
+            print(text[1:-1])
+        self.length = str(len(self.text)+1)  # +1 because of code 
 
     def __str__(self):
-        return f"{self.length.zfill(2)}{self.code}#{self.text}#"
+        return f"{self.length.zfill(2)}{self.code}{self.text}"
 
