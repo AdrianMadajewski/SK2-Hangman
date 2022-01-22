@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <sstream>
+#include <pthread.h>
 
 const std::vector<std::string> words{
 	"ala ma kota",
@@ -70,17 +71,59 @@ int check(int expected, const std::string &message, int compare = -1)
 	return expected;
 }
 
+void host_ready()
+{
+	static const std::string response{"013"};
+	for(const auto client : clients) {
+		if(send(client->m_fd, response.data(), response.size(), 0) == -1) {
+			std::cerr << "Cannot send message to: " << client->m_nickname;
+		}
+	}
+	std::cout << "Host is ready - starting the game" << std::endl;
+}
+
+void sendWinner(Client *client)
+{	
+	std::string nick = client->m_nickname;
+	std::string winner_message = std::to_string(nick.size() + 1) + "5" + nick;
+	if(send(client->m_fd, winner_message.data(), winner_message.size(), 0) > 0) {
+		std::cout << "Winner sended to: " << client->m_nickname << std::endl;
+		return;
+	}
+	std::cerr << "Send winner function failed" << std::endl;
+}
+
+
+// Data is not used here (word_index trafiony, id gracza ktory trafil)
+void guessed_letter(int client_socket, const std::string &data)
+{
+	for(auto & client : clients) {
+		if(client->m_fd == client_socket) {
+			// Ten klient trafil literke
+			client->m_guessed++;
+			std::cout << "Updated: " << client->m_nickname << " guessed count: "
+				<< client->m_guessed << std::endl;
+		}
+	}
+
+	// Check for winner
+	for(const auto &client : clients) {
+		if(client->m_guessed == static_cast<int>(words[word_index].size()) && client->m_missed != 5) {
+			// Winner -> send info to all clients
+			sendWinner(client);
+			break;
+		}
+	}
+}
+
 void new_host(int &client_socket, const std::string &data)
 {
-	std::cout << "new_host start" << std::endl;
-	// DATA TO CALA WIADOMOSC
 	word_index = distribute(engine);
-	std::cout << "generated" << std::endl;
 	Client *client = new Client(client_socket, data);
 	client->is_host = true;
-	std::cout << client->new_player_id << std::endl;
 	clients.emplace_back(client);
-	std::cout << "new client created" << std::endl;
+
+	std::cout << "Host: " << client->m_nickname << std::endl;
 
 	std::string message_to_host = std::to_string(static_cast<int>(Code::NEW_PASSWORD)) +
 		words[word_index] + std::to_string(client->player_id);
@@ -89,18 +132,18 @@ void new_host(int &client_socket, const std::string &data)
 		message_to_host = '0' + std::to_string(length) + message_to_host;
 	}
 	message_to_host = std::to_string(length) + message_to_host;
-	std::cout << "message constructed" << std::endl;
 	if(send(client_socket, message_to_host.data(), message_to_host.length(), 0) == -1)
 	{
 		std::cerr << "Send failed" << std::endl;
 		return;
 	}
-	std::cout << "message sended" << std::endl;
+
+	std::cout << "Host response send" << std::endl;
 }
 
 void invalid_nickname(int client_socket)
 {
-	static const std::string return_message{"taken1"};
+	static const std::string return_message{"5taken"};
 	if(send(client_socket, return_message.data(), return_message.size(), 0) > 0) {
 		return;
 	}
@@ -114,6 +157,26 @@ void valid_player(Client *client)
 		return;
 	} 
 	std::cerr << "Valid player send error";
+}
+
+void reset()
+{
+	// New game
+	for(auto &clients : clients) {
+		clients->m_guessed = 0;
+		clients->m_missed = 0;
+	}
+	word_index = distribute(engine);
+	int message_length = words[word_index].length() + 1;
+	std::string response = std::to_string(message_length) + "7" + words[word_index];
+
+	// Send new password to all clients
+	for(const auto &client : clients) {
+		if(send(client->m_fd, response.data(), response.size(), 0) < 0) {
+			std::cerr << "Error in reset" << std::endl;
+		}
+	}
+	std::cout << "Reset completed - all players in lobby" << std::endl;
 }
 
 void new_player(int client_socket, const std::string &nickname)
@@ -136,17 +199,12 @@ void new_player(int client_socket, const std::string &nickname)
 
 	// Send information back to player
 	valid_player(client);
+	delete client;
 }
 
-
-
-std::string checkForNickname(int client_socket, std::string &data)
+void* handle_connection(void* p_client_socket)
 {
-	return std::string();
-}
-
-void handle_connection(int client_socket)
-{
+	int client_socket = *((int*)(p_client_socket));
 	while(true)
 	{
 		// Blocking read to get size of the whole message (2 bytes max)
@@ -157,7 +215,6 @@ void handle_connection(int client_socket)
 			break;
 		}
 		int message_size_int = std::stoi(message_size);
-		std::cout << message_size_int << std::endl;
 		std::string data(message_size_int, '*');
 		if(recv(client_socket, data.data(), message_size_int, MSG_WAITALL) != message_size_int)
 		{
@@ -166,52 +223,38 @@ void handle_connection(int client_socket)
 		}
 		std::cout << "Received: " << message_size_int << " bytes: " << data << std::endl;
 
-		// 40 - wielkosc nazwy uzytkownika bez \0 + 1 bo kod wiadomosci + 2 hasztagi
-
-		// data[0] - kod wiadomosci
-		// data[1] - #
-
-		// data[len] - #
-
 		Code message_code = static_cast<Code>(data[0] - '0');
-		std::cout << "Error code: " << static_cast<int>(message_code) << std::endl;
+		std::cout << "Code: " << static_cast<int>(message_code) << std::endl;
 		std::string message = data.erase(0, 1);
 		std::cout << "Message: " << message << " [" << message.length() << "]" << std::endl;
 		switch(message_code)
 		{
 			case Code::NEW_HOST:
-				std::cout << "NEW_HOST" << std::endl;
 				new_host(client_socket, message);
 				break;
 			case Code::NEW_PLAYER:
-				std::cout << "NEW PLAYER" << std::endl;
 				new_player(client_socket, message);
 				break;
 			case Code::READY:
-				std::cout << "READY" << std::endl;
+				host_ready();
 				break;
 			case Code::GUESSED_RIGHT:
-				std::cout << "GUESSED_RIGHT" << std::endl;
+				guessed_letter(client_socket, data);
 				break;
 			case Code::NEW_PASSWORD:
-				std::cout << "NEW_PASSWORD" << std::endl;
+				reset();
 				break;
 			case Code::RECONNECT:
 				std::cout << "RECONNECT" << std::endl;
-				break;
-			case Code::WINNER:
-				std::cout << "WINNER" << std::endl;
 				break;
 			default:
 				std::cerr << "ERROR: invalid message code" << std::endl;
 				break;
 		}
-		
-		// Dummy send
-		// write(client_socket, "12345", 6);
 	}
 
 	close(client_socket);
+	return NULL;
 }
 
 typedef struct sockaddr_in SA_IN;
@@ -292,7 +335,11 @@ int main(int argc, char **argv)
 		}
 
 		std::cout << "Connection from: " << buffer << std::endl;
-		handle_connection(client_socket);
+		pthread_t thread;
+		int *p_client = (int*)malloc(sizeof(int));
+		*p_client = client_socket;
+		pthread_create(&thread, NULL, handle_connection, p_client);
+		//handle_connection(client_socket);
 	}
 
 	close(server_socket);
