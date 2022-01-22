@@ -11,11 +11,13 @@ public:
     enum Code
     {
         ERROR = -1,
-        HOST_INITIAL,
-        NEW_PLAYER,
-        HOST_READY,
-        RESET, 
-        NICK_TAKEN,
+        HOST_INITIAL = 0,
+        NEW_PLAYER = 1,
+        NICK_TAKEN = 2,
+        HOST_READY = 3,
+        NEW_LETTER = 4, 
+        RESET = 5,
+        RECONNECT = 6,
     };
 
     struct Info
