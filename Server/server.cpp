@@ -71,25 +71,34 @@ int check(int expected, const std::string &message, int compare = -1)
 	return expected;
 }
 
-void host_ready()
+void host_ready(int client_socket)
 {
 	static const std::string response{"013"};
+	bool host = false;
 	for(const auto client : clients) {
-		if(send(client->m_fd, response.data(), response.size(), 0) == -1) {
-			std::cerr << "Cannot send message to: " << client->m_nickname;
+		if(client->m_fd == client_socket && client->is_host == true) {
+			if(send(client->m_fd, response.data(), response.size(), 0) == -1) {
+				std::cerr << "Cannot send message to: " << client->m_nickname;
+			}
+			host = true;
 		}
 	}
-	std::cout << "Host is ready - starting the game" << std::endl;
+	static const std::string host_ready = "Host is ready - starting the game";
+	static const std::string no_host = "Client is not host - cannot by ready";
+	std::cout << (host ? host_ready : no_host) << std::endl;
 }
 
-void sendWinner(Client *client)
+void sendWinner(Client *winner)
 {	
-	std::string nick = client->m_nickname;
+	std::string nick = winner->m_nickname;
 	std::string winner_message = std::to_string(nick.size() + 1) + "5" + nick;
-	if(send(client->m_fd, winner_message.data(), winner_message.size(), 0) > 0) {
+	for(const auto &client : clients) {
+		if(send(client->m_fd, winner_message.data(), winner_message.size(), 0) > 0) {
 		std::cout << "Winner sended to: " << client->m_nickname << std::endl;
 		return;
 	}
+	}
+
 	std::cerr << "Send winner function failed" << std::endl;
 }
 
@@ -236,10 +245,10 @@ void* handle_connection(void* p_client_socket)
 				new_player(client_socket, message);
 				break;
 			case Code::READY:
-				host_ready();
+				host_ready(client_socket);
 				break;
 			case Code::GUESSED_RIGHT:
-				guessed_letter(client_socket, data);
+				guessed_letter(client_socket, message);
 				break;
 			case Code::NEW_PASSWORD:
 				reset();
