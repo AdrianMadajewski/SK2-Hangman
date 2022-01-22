@@ -24,10 +24,13 @@ class Communication:
             ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
             if ready_to_read:
                 try:
+                    
                     msg_size = int(s.recv(2, socket.MSG_WAITALL).decode("UTF-8"))
-
+                    print(f"msg size {msg_size }")
                     message = s.recv(msg_size, socket.MSG_WAITALL).decode("UTF-8")
-                    print(message)
+                    print(f"message {message}")
+                    
+                    
                     self.handleMessage(Message(message))
                 except ValueError:
                     self.GUI.setErrorScene("Connection closed :(",True)
@@ -38,7 +41,7 @@ class Communication:
 
 
             else:
-                print("timedd out")
+                print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
 
     def write(self, s: socket):
@@ -84,9 +87,7 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
-        
         if msg.code ==msg.new_player:
-            print(msg.text,msg.code)
             if msg.text.isnumeric():  # received id, need to save it to file
                 with open("id.txt", "w+") as f:
                     f.write(msg.text)
@@ -173,7 +174,6 @@ class Message:
         else:
             self.code = int(text[0])
             self.text = text[1:]
-            print(text[1:-1])
         self.length = str(len(self.text)+1)  # +1 because of code 
 
     def __str__(self):

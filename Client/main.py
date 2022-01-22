@@ -30,6 +30,8 @@ class MainWindow(qtw.QDialog):
         super(MainWindow, self).__init__()
         self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
         self.setupUi()
+        with open("config.txt", "r+") as f:
+                self.ip = f.readline()
 
     def setupUi(self):
 
@@ -69,11 +71,7 @@ class MainWindow(qtw.QDialog):
         hostButton = qtw.QPushButton("I'm a host")
         connectButton = qtw.QPushButton("I want to join")
 
-        ipField = qtw.QLineEdit()
-
-        ipField.setPlaceholderText("Enter ip:")
-        ipField.setMinimumWidth(100)
-        ipField.setAlignment(Qt.Qt.AlignCenter)
+        
         nameField = qtw.QLineEdit()
         nameField.setMaxLength(20)  # set max name legnth to 20 chars
         nameField.setPlaceholderText("Enter nickname:")
@@ -81,18 +79,17 @@ class MainWindow(qtw.QDialog):
         nameField.setAlignment(Qt.Qt.AlignCenter)
 
         hostButton.clicked.connect(lambda:
-                                   self.goToWaitingRoom("Waiting for players...", ipField, nameField, hostButton=True))
+                                   self.goToWaitingRoom("Waiting for players...", nameField, hostButton=True))
 
         connectButton.clicked.connect(lambda :
-           self.goToWaitingRoom("Waiting for players...",ipField,nameField,hostButton=False)) 
+           self.goToWaitingRoom("Waiting for players...",nameField,hostButton=False)) 
         
         connectButton.clicked.connect(
             lambda: self.QtStack.setCurrentWidget(self.GameScene))
 
-        layout.addWidget(hostButton, 0, 0)
-        layout.addWidget(connectButton, 1, 0,)
-        layout.addWidget(ipField, 1, 1)
-        layout.addWidget(nameField, 0, 1)
+        layout.addWidget(hostButton, 1, 0)
+        layout.addWidget(connectButton, 1, 1)
+        layout.addWidget(nameField, 0, 0,1,2)
 
         for id in range(layout.count()):
             item = layout.itemAt(id).widget()
@@ -156,14 +153,10 @@ class MainWindow(qtw.QDialog):
         self.com.connectionStable = False
         self.com = None
 
-    def goToWaitingRoom(self, text: str, ip: str, name: str, hostButton=False):
+    def goToWaitingRoom(self, text: str, name: str, hostButton=False):
         
 
-        try:
-            socket.inet_aton(ip.text())
-        except socket.error:
-            ip.setText("Please enter valid ip address")
-            return
+        
 
         if not(name.text().isalnum()):
             name.setText("Please enter valid nickname")
@@ -174,7 +167,7 @@ class MainWindow(qtw.QDialog):
         self.QtStack.setCurrentWidget(self.WaitingRoom)
 
         self.com = Communication(
-            GUIReference=self, address=ip.text(), port=2137, isHost=hostButton)
+            GUIReference=self, address=self.ip, port=2137, isHost=hostButton)
         
         threading.Thread(target=self.com.run).start()
         
@@ -279,7 +272,6 @@ class MainWindow(qtw.QDialog):
         isAlive = 0 <= self.lifeCounter < 4
 
         if isAlive:
-            print("alive")
             self.sender().deleteLater()
 
             if letter in self.password:
