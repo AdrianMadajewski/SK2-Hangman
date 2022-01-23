@@ -3,6 +3,8 @@ import socket
 import threading
 from os.path import exists
 from queue import Queue
+import logging
+
 
 
 
@@ -19,28 +21,23 @@ class Communication:
 
     def listen(self, s: socket):
         while self.connectionStable:
-            ready_to_read, _, _ = select.select([s], [], [], self.timeLimit)
-            if ready_to_read:
-                try:
+            
+            ready_to_read_message, _, _ = select.select([s], [], [], self.timeLimit)
+            
+            
+            if ready_to_read_message:
+                
+                msg_size_bytes  = self.read_n_bytes(s,2)
+                if msg_size_bytes:
+                    msg_size = int(msg_size_bytes.decode("UTF-8"))
                     
-                    msg_size_bytes  = s.recv(2, socket.MSG_WAITALL)
-                    if msg_size_bytes ==b'':
-                        self.connectionStable=False
-                        break
+                    print(f"msg size {msg_size}",end=' ')
                     
-                    msg_size = msg_size_bytes.decode("UTF-8")
-                    print(f"msg size {msg_size}")
-                    message = s.recv(msg_size, socket.MSG_WAITALL)
-                    self.connectionStable = message!=b''
-                    message = message.decode("UTF-8")
-                    
+                if self.connectionStable:
+                    message = self.read_n_bytes(s,msg_size).decode("UTF-8")
                     print(f"message {message}")
-                    
-                    
                     self.handleMessage(Message(message))
-                except ValueError:
-                    self.GUI.setErrorScene("Connection closed :(",True)
-                    self.connectionStable = False
+            
                     
 
                 
@@ -50,6 +47,57 @@ class Communication:
                 print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
 
+
+
+    def read_n_bytes(self,s:socket,bytes_count:int) ->bytes:
+        chunks = []
+        bytes_recd = 0
+        while bytes_recd<bytes_count:
+            try:
+                chunk = s.recv(bytes_count-bytes_recd)
+                chunks.append(chunk)
+                bytes_recd+=len(chunk)
+                print(chunks,chunk)
+                if chunk ==b'':
+                    self.connectionStable = False 
+                    self.GUI.setErrorScene("Server closed connection",allowReconnect=True)
+                    return None
+
+            except socket.timeout as e:
+                err = e.args[0]
+                logging.error(e)
+                
+                if err == 'timed out':
+                    #TODO: HANDLING TIMEOUT INSIDE MESSAGE
+                    #moze liczenie timeoutów ma sens? Jeśli wewnatrz wiadomosc timeout x3 to connection stable false?
+                    pass
+                
+                    #self.connectionStable = False #timeout
+                    
+            except socket.error as e:
+                self.connectionStable = False #jakis bardzo zły błąd
+                logging.error(e)
+                break
+            
+            
+            
+        return b''.join(chunks)
+            
+    def mysendall(self,s:socket,data:str):
+        ret = 0
+        while ret<len(data):
+            try:
+                sent = s.send(data[ret:])
+                ret+=sent
+            except socket.timeout as e:
+                logging.error(e)
+                #FIXME: HANDLE TIMEOUT
+            except socket.error as e:
+                logging.error(e)
+                self.conectionstable = False
+                break
+        return ret
+    
     def write(self, s: socket):
 
         # it is blocking, but it blocks in a thread, so it doesnt really matter
@@ -59,20 +107,9 @@ class Communication:
         while self.connectionStable:
             message: str = self.messageQueue.get(block=True)
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
+            
             if ready_to_write:
-             
-                #implementacja sendall w cpython   
-                # def sendall(sock, data, flags=0):
-                #     ret = sock.send(data, flags)
-                #     if ret > 0:
-                #         return sendall(sock, data[ret:], flags)
-                #     else:
-                # return None
-                
-                sent = s.sendall((str(message)).encode("UTF-8"))
-                
-                self.connectionStable=len(str(message))==sent
-                print(self.connectionStable)
+                self.mysendall(s,(str(message)).encode("UTF-8"))
             else:
                 print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
@@ -90,9 +127,12 @@ class Communication:
     def run(self):
         self.messageQueue.queue.clear()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(5)
+            
             try:
                 s.connect((self.address, self.port))
-            except ConnectionRefusedError:
+            except (socket.timeout,ConnectionRefusedError) as e:
+                logging.error(e)
                 self.GUI.setErrorScene("Couldn't connect to the server",True)
                 return
             readerThread = threading.Thread(target=self.listen, args=(s,))
@@ -105,6 +145,7 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
+        print(msg.code,msg.text)
         if msg.code ==msg.new_player:
             if msg.text.isnumeric():  # received id, need to save it to file
                 with open("id.txt", "w+") as f:
@@ -188,11 +229,11 @@ class Message:
 
     def __init__(self, text: str, code=None):
         if code:
-            self.code: int = code
+            self.code: int = int(code)
             self.text: str = text
 
         else:
-            self.code = text[0]
+            self.code = int(text[0])
             self.text = text[1:]
         self.length = str(len(self.text)+1)  # +1 because of code 
 
