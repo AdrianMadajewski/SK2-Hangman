@@ -4,8 +4,6 @@ import threading
 from os.path import exists
 from queue import Queue
 
-import PyQt5.QtCore as Qt
-import PyQt5.QtWidgets as qtw
 
 
 class Communication:
@@ -25,9 +23,17 @@ class Communication:
             if ready_to_read:
                 try:
                     
-                    msg_size = int(s.recv(2, socket.MSG_WAITALL).decode("UTF-8"))
-                    print(f"msg size {msg_size }")
-                    message = s.recv(msg_size, socket.MSG_WAITALL).decode("UTF-8")
+                    msg_size_bytes  = s.recv(2, socket.MSG_WAITALL)
+                    if msg_size_bytes ==b'':
+                        self.connectionStable=False
+                        break
+                    
+                    msg_size = msg_size_bytes.decode("UTF-8")
+                    print(f"msg size {msg_size}")
+                    message = s.recv(msg_size, socket.MSG_WAITALL)
+                    self.connectionStable = message!=b''
+                    message = message.decode("UTF-8")
+                    
                     print(f"message {message}")
                     
                     
@@ -54,7 +60,19 @@ class Communication:
             message: str = self.messageQueue.get(block=True)
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
             if ready_to_write:
-                sent = s.send((str(message)).encode("UTF-8"))
+             
+                #implementacja sendall w cpython   
+                # def sendall(sock, data, flags=0):
+                #     ret = sock.send(data, flags)
+                #     if ret > 0:
+                #         return sendall(sock, data[ret:], flags)
+                #     else:
+                # return None
+                
+                sent = s.sendall((str(message)).encode("UTF-8"))
+                
+                self.connectionStable=len(str(message))==sent
+                print(self.connectionStable)
             else:
                 print("timed out")
                 # TODO: handling timeout + change time limit to 30(?)
@@ -95,6 +113,7 @@ class Communication:
                 self.GUI.setErrorScene(
                     '''This nick is taken!
                     \nPlease connect once more with different name ;-)''')
+                
         elif msg.code ==msg.ready_code:
             self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
             
@@ -116,8 +135,8 @@ class Communication:
 
 
         elif msg.code ==msg.guessed_letter:
-            player, score = msg.text.split('SCORE')
-            self.GUI.playersDict[player] = score
+            player, guessed,missed = msg.text.split(':')
+            self.GUI.playersDict[player] = f"{guessed}/{missed}"
             self.GUI.updateLeaderBoard()
 
         elif msg.code ==msg.winner_code:
@@ -156,6 +175,7 @@ class Communication:
 
 
 class Message:
+    #TODO: ZMIENIC NA ZNAKI
     new_host = 1
     new_player = 2
     ready_code = 3
@@ -168,11 +188,11 @@ class Message:
 
     def __init__(self, text: str, code=None):
         if code:
-            self.code: int = int(code)
+            self.code: int = code
             self.text: str = text
 
         else:
-            self.code = int(text[0])
+            self.code = text[0]
             self.text = text[1:]
         self.length = str(len(self.text)+1)  # +1 because of code 
 
