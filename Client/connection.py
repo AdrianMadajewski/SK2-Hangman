@@ -5,6 +5,8 @@ import threading
 from os.path import exists
 from queue import Queue
 
+import PyQt5.QtWidgets as qtw
+
 
 class Communication:
     messageQueue: Queue = Queue()
@@ -13,7 +15,7 @@ class Communication:
 
     def __init__(
         self,
-        GUIReference=None,
+        GUIReference: qtw.QDialog = None,
         address: str = "127.0.0.1",
         port: int = 2137,
         isHost: bool = False,
@@ -54,6 +56,8 @@ class Communication:
                 chunks.append(chunk)
                 bytes_recd += len(chunk)
                 print(chunks, chunk)
+                self.GUI.QtStack.setWindowTitle("Hangman!")
+
                 if chunk == b"":
                     self.connectionStable = False
                     self.GUI.setErrorScene(
@@ -61,12 +65,10 @@ class Communication:
                     )
                     return None
             except socket.timeout as e:
+
                 logging.error(e)
-                if e == "timed out":
-                    # TODO: HANDLING TIMEOUT INSIDE MESSAGE
-                    # moze liczenie timeoutów ma sens? Jeśli wewnatrz wiadomosc
-                    # timeout x3 to connection stable false?
-                    pass
+                self.GUI.QtStack.setWindowTitle("Warning, connection unstable!")
+
             except socket.error as e:
                 self.connectionStable = False  # jakis bardzo zły błąd
                 logging.error(e)
@@ -80,8 +82,12 @@ class Communication:
             try:
                 sent = s.send(data[ret:])
                 ret += sent
+                self.GUI.QtStack.setWindowTitle("Hangman!")
+
             except socket.timeout as e:
                 logging.error(e)
+                self.GUI.QtStack.setWindowTitle("Warning, connection unstable!")
+
                 # FIXME: HANDLE TIMEOUT
             except socket.error as e:
                 logging.error(e)
