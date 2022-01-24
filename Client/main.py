@@ -27,7 +27,8 @@ class MainWindow(qtw.QDialog):
         self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
         self.setupUi()
         with open("config.txt", "r+") as f:
-            self.ip = f.readline()
+            self.ip = f.readline()[:-1]
+            self.port = int(f.readline())
 
     def setupUi(self):
 
@@ -166,7 +167,7 @@ class MainWindow(qtw.QDialog):
         self.QtStack.setCurrentWidget(self.WaitingRoom)
 
         self.com = Communication(
-            GUIReference=self, address=self.ip, port=2137, isHost=hostButton
+            GUIReference=self, address=self.ip, port=self.port, isHost=hostButton
         )
 
         threading.Thread(target=self.com.run).start()
