@@ -1,4 +1,5 @@
 import logging
+from os import stat
 import select
 import socket
 import threading
@@ -36,15 +37,13 @@ class Communication:
                 if msg_size_bytes:
                     msg_size = int(msg_size_bytes.decode("UTF-8"))
 
-                    print(f"msg size {msg_size}", end=" ")
 
                 if self.connectionStable:
                     message = self.read_n_bytes(s, msg_size).decode("UTF-8")
-                    print(f"message {message}")
                     self.handleMessage(Message(message))
 
             else:
-                print("timed out")
+                logging.warning("timed out on select")
                 # TODO: handling timeout + change time limit to 30(?)
 
     def read_n_bytes(self, s: socket, bytes_count: int) -> bytes:
@@ -55,7 +54,7 @@ class Communication:
                 chunk = s.recv(bytes_count - bytes_recd)
                 chunks.append(chunk)
                 bytes_recd += len(chunk)
-                print(chunks, chunk)
+                logging.info(f"Message chunks: {chunks} incoming chunk: {chunk}")
                 self.GUI.QtStack.setWindowTitle("Hangman!")
 
                 if chunk == b"":
@@ -66,7 +65,7 @@ class Communication:
                     return None
             except socket.timeout as e:
 
-                logging.error(e)
+                logging.error("Timed out on socket read between chunks")
                 self.GUI.QtStack.setWindowTitle("Warning, connection unstable!")
 
             except socket.error as e:
@@ -85,7 +84,7 @@ class Communication:
                 self.GUI.QtStack.setWindowTitle("Hangman!")
 
             except socket.timeout as e:
-                logging.error(e)
+                logging.warning("socket timeout on send")
                 self.GUI.QtStack.setWindowTitle("Warning, connection unstable!")
 
                 # FIXME: HANDLE TIMEOUT
@@ -93,6 +92,7 @@ class Communication:
                 logging.error(e)
                 self.conectionstable = False
                 break
+        
         return ret
 
     def write(self, s: socket):
@@ -106,9 +106,12 @@ class Communication:
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
 
             if ready_to_write:
+               
+                logging.info(f"Sending {message.text} with code: {message.code}")
                 self.mysendall(s, (str(message)).encode("UTF-8"))
+                
             else:
-                print("timed out")
+                logging.warning("timed out on write Queue")
                 # TODO: handling timeout + change time limit to 30(?)
 
     def addTexttoQueue(self, text):
@@ -128,8 +131,8 @@ class Communication:
 
             try:
                 s.connect((self.address, self.port))
-            except (socket.timeout, ConnectionRefusedError) as e:
-                logging.error(e)
+            except (socket.timeout, ConnectionRefusedError):
+                logging.error("Timeout on establishing connection")
                 self.GUI.setErrorScene("Couldn't connect to the server", True)
                 return
             readerThread = threading.Thread(target=self.listen, args=(s,))
@@ -142,7 +145,8 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
-        print(msg.code, msg.text)
+        logging.info(f"Received Message {'<empty>' if len(msg.text)==0 else msg.text} with code:{msg.code}")
+        
         if msg.code == msg.new_player:
             if msg.text.isnumeric():  # received id, need to save it to file
                 with open("id.txt", "w+") as f:
@@ -184,7 +188,7 @@ class Communication:
             if msg.text == "sendID":
                 if exists("id.txt"):
                     with open("id.txt", "r+") as f:
-                        id = f.readline()
+                        self.id = f.readline()
                     # send id to let server verify if i was connected
                     self.addTexttoQueue(Message(id, msg.reconnect_code))
                 else:  # cant find id file
@@ -201,7 +205,7 @@ class Communication:
                         \nEnter your nickname or wait for the game to end"""
                 )
             else:
-                print("No idea what happened")
+                logging.error("Unknown Message Code")
 
         elif msg.code == msg.new_password:
             self.GUI.setPassword(msg.text)
@@ -234,3 +238,9 @@ class Message:
 
     def __str__(self):
         return f"{self.length.zfill(2)}{self.code}{self.text}"
+    @staticmethod
+    def fromString(string:str):
+        data = string[2:]
+        code = data[0]
+        text = data[1:]
+        return Message(text,int(code))
