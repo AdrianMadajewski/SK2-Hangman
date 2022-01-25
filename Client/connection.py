@@ -1,5 +1,4 @@
 import logging
-from os import stat
 import select
 import socket
 import threading
@@ -180,7 +179,18 @@ class Communication:
             self.GUI.updateLeaderBoard()
 
         elif msg.code == msg.winner_code:
-            # TODO:
+            self.GUI.disableAllLetters()
+            if msg.text == self.GUI.nickname:
+                self.GUI.passwordLabel.setText(
+                        " ".join(self.GUI.guessedpassword) + "\n\nYou Won!"
+                    )
+            else:
+                self.GUI.passwordLabel.setText(
+                    " ".join(self.GUI.guessedpassword) + "\n\nYou Lost! ;-)"
+                )
+                
+                
+                
             pass
 
         elif msg.code == msg.reconnect_code:

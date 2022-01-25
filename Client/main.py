@@ -1,17 +1,20 @@
-import sys
-import warnings
-import threading
 import logging
+import sys
+import threading
+import warnings
+
 import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIcon, QPixmap
 
 from connection import Communication, Message
 from FlowLayout import FlowLayout
+
 warnings.simplefilter("ignore")
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
+
 
 class MainWindow(qtw.QDialog):
     life = ["./resources/" + f"life{i}.png" for i in range(5)]
@@ -22,6 +25,7 @@ class MainWindow(qtw.QDialog):
     passwordLabel = 0
     connected = False
     playersCount = 0
+    nickname = ""
 
     def __init__(self):
 
@@ -154,7 +158,7 @@ class MainWindow(qtw.QDialog):
 
         self.com = Communication(GUIReference=self, address=self.ip, port=self.port)
         threading.Thread(target=self.com.run).start()
-        
+
         with open("id.txt", "r") as f:
             self.id = f.readline()
         self.com.isHost = id == 0
@@ -183,11 +187,12 @@ class MainWindow(qtw.QDialog):
         threading.Thread(target=self.com.run).start()
 
         self.WaitingRoom.findChild(qtw.QLabel).setText("Waiting for other players...")
+        self.nickname = name.text()
         if hostButton:
-            msg = Message(name.text(), Message.new_host)
+            msg = Message(self.nickname, Message.new_host)
         else:
             self.WaitingRoom.findChild(qtw.QPushButton).hide()
-            msg = Message(name.text(), Message.new_player)
+            msg = Message(self.nickname, Message.new_player)
 
         self.com.addTexttoQueue(msg)
 
@@ -289,7 +294,7 @@ class MainWindow(qtw.QDialog):
                 self.passwordLabel.setText(" ".join(self.guessedpassword))
 
                 if self.password == "".join(self.guessedpassword):
-                    self.deleteAllLetters()
+                    self.disableAllLetters()
                     self.passwordLabel.setText(
                         " ".join(self.guessedpassword) + "\n\nYou Won!"
                     )
@@ -313,6 +318,10 @@ class MainWindow(qtw.QDialog):
         for id in range(self.letterLayout.count()):
             self.letterLayout.itemAt(id).widget().deleteLater()
 
+    def disableAllLetters(self):
+        for id in range(self.letterLayout.count()):
+            self.letterLayout.itemAt(id).widget().setDisabled(True)
+
     def findAllOccurencies(self, letter: str) -> list[int]:
         return [i for i, l in enumerate(self.password) if l == letter]
 
@@ -334,7 +343,7 @@ class LetterButton(qtw.QPushButton):
 
 
 if __name__ == "__main__":
-    
-    app = qtw.QApplication(sys.argv)
+
+    app = qtw.QApplication([])
     w = MainWindow()
     sys.exit(app.exec())
