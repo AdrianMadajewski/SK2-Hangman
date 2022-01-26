@@ -202,7 +202,7 @@ class MainWindow(qtw.QDialog):
         self.playersTable.setRowCount(0)
         # FIXME: format score pewnie sie zmieni na cos w stylu trafione/stracone wiec klucz bedize do zmiany
         # ale działa póki co
-        for desc, price in sorted(self.playersDict.items(), key=lambda x: -x[1][0]/x[1][1]):
+        for desc, price in sorted(self.playersDict.items(), key=lambda x: -x[1][0]/x[1][1] if x[1][1]>0 else -x[1][0]):
             self.playersTable.insertRow(0)
             name = qtw.QTableWidgetItem(desc)
             name.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
