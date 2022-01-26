@@ -1,1 +1,36 @@
-06
+DODANIE NOWEGO GRACZA
+    Serwer sprawdza czy gracz jest hostem (jesli brak graczyt to pierwszy jest hostem)
+    {rozmiar_wiadomosc}5{nickname} - 5 to kod nowego GRACZA, rozmiar_wiadomosc to rozmiar calej wiadomosci razem z kodem
+
+    Jesli gracz otrzyma hosta to odsyla:
+        010 -> rozmiar 1, kod 0 (HOST_INIT)
+    Jesli gracz jest zwyklym graczem to serwer odsyla:
+
+        DO WSZYSTKICH obecnych - nickname nowego gracza
+            {rozmiar}{5}{nowy_gracz}
+
+        DO NOWEGO GRACZA - wszystkich pozostalych graczy
+            {rozmiar}{5}{nowy_gracz}
+
+HOST JEST GOTOWY DO GRY
+    Serwer dostaje wiadomosc od hosta (sprawdza czy jest hostem ale nie host by nie wyslal takiej wiadomosci i tak)
+    013 -> 01 - rozmiar, 3 - kod HOST_READY
+
+    Jesli serwer dostanie taka wiadomosc to kazdemu klientowi obecnie podlaczonemu przesle obecne haslo
+    {rozmiar}{4 - kod PASSWORD}{haslo}
+
+PROSBA RESETU // niezrobiona jeszcze
+
+ZGADYWANIE LITERY
+    Klient wysyla do serwera informacje o trafionej literze
+    {rozmiar}{5 - GUESS}{[0, 1]} gdzie 0 - litera nietrafiona (zwieksz nietrafione), 1 litera trafiona
+
+    Serwer odpowiada w 3 sposobach:
+        JESLI biezacy traf wylonil zwyciezce to wysyla wiadomosc:
+        {rozmiar}{6 - WINNER}{nickname_zwyciezcy}
+
+        JESLI biezacy traf spowodowal przegrana to:
+        // nie robi nic ale imo powinien but k
+
+        JESLI nie wygral ani nie przegral to zwieksza odpowiednie zmienne i odsyla komunikat do WSZYSTKICH (siebie tez)
+        {rozmiar}{5 - GUESS}{jego_nickname}{jego_trafione}:{jego_nietrafione}
