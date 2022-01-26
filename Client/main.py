@@ -1,35 +1,42 @@
-import socket
+import logging
 import sys
 import threading
-from enum import Enum
+import warnings
+from os.path import exists,dirname
 
-import PyQt5.QtCore as Qt
+import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIcon, QPixmap
 
 from connection import Communication, Message
 from FlowLayout import FlowLayout
 
+warnings.simplefilter("ignore")
 
-
-
-
+logging.basicConfig()
+logging.root.setLevel(logging.INFO)
+directory = dirname(__file__)
 
 class MainWindow(qtw.QDialog):
-    life = ['./resources/'+f'life{i}.png' for i in range(5)]
+    life = [f"{directory}/resources/" + f"life{i}.png" for i in range(5)]
     alphabet = list("abcdefghijklmnopqrstuwxyz".upper())
     lifeCounter = -len(alphabet)  # buttons fire callbacks when created
     password = "_".upper()
-    guessedpassword = ['_' for _ in password]
+    guessedpassword = ["_" for _ in password]
     passwordLabel = 0
     connected = False
     playersCount = 0
+    nickname = ""
 
     def __init__(self):
 
-        super(MainWindow, self).__init__()
-        self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
+        super().__init__()
+
+        self.setWindowIcon(QIcon(f"{directory}/resources/LogoBlue.png"))
         self.setupUi()
+        with open("config.txt", "r+") as f:
+            self.ip = f.readline()[:-1]
+            self.port = int(f.readline())
 
     def setupUi(self):
 
@@ -41,9 +48,8 @@ class MainWindow(qtw.QDialog):
         self.GameScene = qtw.QWidget()
         self.ErorrScene = qtw.QWidget()
 
-        stylesheet = open('stylesheet.css').read()
-        scenes = [self.WelcomeScene, self.WaitingRoom,
-                  self.GameScene, self.ErorrScene]
+        stylesheet = open(f"{directory}/stylesheet.css").read()
+        scenes = [self.WelcomeScene, self.WaitingRoom, self.GameScene, self.ErorrScene]
         for scene in scenes:
             scene.setStyleSheet(stylesheet)
             self.QtStack.addWidget(scene)
@@ -69,35 +75,33 @@ class MainWindow(qtw.QDialog):
         hostButton = qtw.QPushButton("I'm a host")
         connectButton = qtw.QPushButton("I want to join")
 
-        ipField = qtw.QLineEdit()
-
-        ipField.setPlaceholderText("Enter ip:")
-        ipField.setMinimumWidth(100)
-        ipField.setAlignment(Qt.Qt.AlignCenter)
         nameField = qtw.QLineEdit()
         nameField.setMaxLength(20)  # set max name legnth to 20 chars
         nameField.setPlaceholderText("Enter nickname:")
         nameField.setMinimumWidth(100)
-        nameField.setAlignment(Qt.Qt.AlignCenter)
+        nameField.setAlignment(QtCore.Qt.AlignCenter)
 
-        hostButton.clicked.connect(lambda:
-                                   self.goToWaitingRoom("Waiting for players...", ipField, nameField, hostButton=True))
+        hostButton.clicked.connect(
+            lambda: self.goToWaitingRoom(
+                "Waiting for players...", nameField, hostButton=True
+            )
+        )
 
-        connectButton.clicked.connect(lambda :
-           self.goToWaitingRoom("Waiting for players...",ipField,nameField,hostButton=False)) 
-        
         connectButton.clicked.connect(
-            lambda: self.QtStack.setCurrentWidget(self.GameScene))
+            lambda: self.goToWaitingRoom(
+                "Waiting for players...", nameField, hostButton=False
+            )
+        )
 
-        layout.addWidget(hostButton, 0, 0)
-        layout.addWidget(connectButton, 1, 0,)
-        layout.addWidget(ipField, 1, 1)
-        layout.addWidget(nameField, 0, 1)
+        layout.addWidget(hostButton, 1, 0)
+        layout.addWidget(connectButton, 1, 1)
+        layout.addWidget(nameField, 0, 0, 1, 2)
 
         for id in range(layout.count()):
             item = layout.itemAt(id).widget()
-            item.setSizePolicy(qtw.QSizePolicy(qtw.QSizePolicy.Ignored,
-                                               qtw.QSizePolicy.Ignored))
+            item.setSizePolicy(
+                qtw.QSizePolicy(qtw.QSizePolicy.Ignored, qtw.QSizePolicy.Ignored)
+            )
             item.setMaximumHeight(100)
 
         self.WelcomeScene.setLayout(layout)
@@ -106,23 +110,22 @@ class MainWindow(qtw.QDialog):
         btn.setDown(True)
         btn.setStyleSheet('color: "#E5E5E5"')
         # FIXME: READY MESSAGE TO SERVER
-        self.com.addTexttoQueue(Message('1', Message.ready_code))
+        self.com.addTexttoQueue(Message("", Message.ready_code))
 
     def updatePlayersInfo(self):
         if self.playersCount == 1:
             self.playersCountInfo.setText("Currently 1 player")
         else:
-            self.playersCountInfo.setText(
-                f"Currently {self.playersCount} players")
+            self.playersCountInfo.setText(f"Currently {self.playersCount} players")
 
     def initWaitingRoom(self):
         self.ready = 0
         layout = qtw.QGridLayout()
         textLabel = qtw.QLabel()
-        textLabel.setAlignment(Qt.Qt.AlignCenter)
+        textLabel.setAlignment(QtCore.Qt.AlignCenter)
         playersCountLabel = qtw.QLabel("Currently 1 player")
         self.playersCountInfo = playersCountLabel
-        playersCountLabel.setAlignment(Qt.Qt.AlignCenter)
+        playersCountLabel.setAlignment(QtCore.Qt.AlignCenter)
 
         readyButton = qtw.QPushButton("I'm Ready")
         cancelButton = qtw.QPushButton("Cancel")
@@ -140,68 +143,71 @@ class MainWindow(qtw.QDialog):
     def initErrorScene(self):
         layout = qtw.QGridLayout()
         textLabel = qtw.QLabel(
-            "There was problem with server.\n You can try to reconnect or go back to main menu")
-        textLabel.setAlignment(Qt.Qt.AlignCenter)
-        readyButton = qtw.QPushButton("Try to Reconnect")
+            "There was problem with server.\n You can try to reconnect or go back to main menu"
+        )
+        textLabel.setAlignment(QtCore.Qt.AlignCenter)
+        reconnectButton = qtw.QPushButton("Try to Reconnect")
         cancelButton = qtw.QPushButton("Go Back to main menu")
         layout.addWidget(textLabel, 0, 0)
-        layout.addWidget(readyButton)
+        layout.addWidget(reconnectButton)
         layout.addWidget(cancelButton)
         cancelButton.clicked.connect(self.cancelConnection)
-        readyButton.clicked.connect(lambda: print("Not Yet implemented"))
+        reconnectButton.clicked.connect(self.reconnect)
         self.ErorrScene.setLayout(layout)
+
+    def reconnect(self):
+
+        self.com = Communication(GUIReference=self, address=self.ip, port=self.port)
+        threading.Thread(target=self.com.run).start()
+
+        with open(f"{directory}/id.txt", "r") as f:
+            self.id = f.readline()
+        self.com.isHost = id == 0
+        self.com.addTexttoQueue(Message(str(self.id), code=Message.reconnect_code))
+        logging.info("Reconnect Attempt")
 
     def cancelConnection(self):
         self.QtStack.setCurrentWidget(self.WelcomeScene)
         self.com.connectionStable = False
         self.com = None
 
-    def goToWaitingRoom(self, text: str, ip: str, name: str, hostButton=False):
-        
+    def goToWaitingRoom(self, text: str, name: str, hostButton=False):
 
-        try:
-            socket.inet_aton(ip.text())
-        except socket.error:
-            ip.setText("Please enter valid ip address")
-            return
-
-        if not(name.text().isalnum()):
+        if not (name.text().isalnum()):
             name.setText("Please enter valid nickname")
             return
 
         # initialize comunication
-        
+
         self.QtStack.setCurrentWidget(self.WaitingRoom)
 
         self.com = Communication(
-            GUIReference=self, address=ip.text(), port=2137, isHost=hostButton)
-        
+            GUIReference=self, address=self.ip, port=self.port, isHost=hostButton
+        )
+
         threading.Thread(target=self.com.run).start()
-        
-    
-        self.WaitingRoom.findChild(qtw.QLabel).setText(
-        "Waiting for other players...")
+
+        self.WaitingRoom.findChild(qtw.QLabel).setText("Waiting for other players...")
+        self.nickname = name.text()
         if hostButton:
-            msg = Message(name.text(), Message.new_host)
+            msg = Message(self.nickname, Message.new_host)
         else:
-            msg = Message(name.text(), Message.new_player)
-        
+            self.WaitingRoom.findChild(qtw.QPushButton).hide()
+            msg = Message(self.nickname, Message.new_player)
+
         self.com.addTexttoQueue(msg)
-            
-        
-        
 
     def updateLeaderBoard(self):
         items = 0
         self.playersTable.setRowCount(0)
         # FIXME: format score pewnie sie zmieni na cos w stylu trafione/stracone wiec klucz bedize do zmiany
         # ale działa póki co
-        for desc, price in sorted(self.playersDict.items(), key=lambda x: -int(x[1])):
+        for desc, price in sorted(self.playersDict.items(), key=lambda x: -x[1][0]/x[1][1] if x[1][1]>0 else -x[1][0]):
             self.playersTable.insertRow(0)
             name = qtw.QTableWidgetItem(desc)
-            name.setFlags(Qt.Qt.ItemFlag.ItemIsEnabled)
+            name.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
             score = qtw.QTableWidgetItem(str(price))
-            score.setFlags(Qt.Qt.ItemFlag.ItemIsEnabled)
+            score.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
             self.playersTable.setItem(items, 0, name)
             self.playersTable.setItem(items, 1, score)
 
@@ -209,8 +215,7 @@ class MainWindow(qtw.QDialog):
         self.HangmanImage = qtw.QLabel()
         layout = qtw.QGridLayout()
         playersTable = qtw.QTableWidget()  # Table widget IS scrollable by default
-        playersDict = {"Player1": 1, "Player2": 5,
-                       "p3": 123, "p5": 2137, "p4": 12213}
+        playersDict = {}
         self.playersDict = playersDict
         self.playersTable = playersTable
 
@@ -218,17 +223,18 @@ class MainWindow(qtw.QDialog):
         playersTable.setHorizontalHeaderLabels(["Name", "score"])
         playersTable.verticalHeader().hide()
         playersTable.setHorizontalScrollBarPolicy(
-            Qt.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
 
         self.updateLeaderBoard()
 
         layout.addWidget(playersTable, 0, 0, 5, 2)
 
-        self.passwordLabel = qtw.QLabel(' '.join(self.guessedpassword))
+        self.passwordLabel = qtw.QLabel(" ".join(self.guessedpassword))
         gameMainWidget = qtw.QWidget()
         hangmanLayout = qtw.QVBoxLayout()
-        self.HangmanImage.setAlignment(Qt.Qt.AlignCenter)
-        self.passwordLabel.setAlignment(Qt.Qt.AlignCenter)
+        self.HangmanImage.setAlignment(QtCore.Qt.AlignCenter)
+        self.passwordLabel.setAlignment(QtCore.Qt.AlignCenter)
 
         hangmanLayout.addWidget(self.HangmanImage, 30)
         hangmanLayout.addWidget(self.passwordLabel, 20)
@@ -242,24 +248,24 @@ class MainWindow(qtw.QDialog):
 
         self.setImage()
         lettersWidget.setLayout(self.letterLayout)
-        
+
         hangmanLayout.addWidget(lettersWidget, 30)
 
         gameMainWidget.setLayout(hangmanLayout)
-        
+
         # gameMainWidget.setStyleSheet("background-color:red;")
         layout.addWidget(gameMainWidget, 0, 2, 5, 5)
         goBackToLobby = qtw.QPushButton("Go Back!")
         goBackToLobby.clicked.connect(self.goBack)
         layout.addWidget(goBackToLobby, 6, 6, 1, 1)
-        
+
         self.GameScene.setLayout(layout)
 
     def goBack(self):
         self.QtStack.setCurrentWidget(self.WaitingRoom)
 
-        self.guessedpassword = ['_' for _ in self.password]
-        self.passwordLabel.setText(' '.join(self.guessedpassword))
+        self.guessedpassword = ["_" for _ in self.password]
+        self.passwordLabel.setText(" ".join(self.guessedpassword))
         self.passwordLabel
 
         self.playersTable = {}
@@ -271,15 +277,13 @@ class MainWindow(qtw.QDialog):
             letterButton.clicked.connect(self.gameLogic)
             self.letterLayout.addWidget(letterButton)
         self.setImage()
-        
-        
+
     def gameLogic(self):
 
         letter = self.sender().text()
         isAlive = 0 <= self.lifeCounter < 4
 
         if isAlive:
-            print("alive")
             self.sender().deleteLater()
 
             if letter in self.password:
@@ -288,12 +292,13 @@ class MainWindow(qtw.QDialog):
                 for id in self.findAllOccurencies(letter):
                     self.guessedpassword[id] = letter
 
-                self.passwordLabel.setText(' '.join(self.guessedpassword))
+                self.passwordLabel.setText(" ".join(self.guessedpassword))
 
-                if self.password == ''.join(self.guessedpassword):
-                    self.deleteAllLetters()
+                if self.password == "".join(self.guessedpassword):
+                    self.disableAllLetters()
                     self.passwordLabel.setText(
-                        ' '.join(self.guessedpassword)+"\n\nYou Won!")
+                        " ".join(self.guessedpassword) + "\n\nYou Won!"
+                    )
             else:
                 self.com.addTexttoQueue(Message("0", Message.guessed_letter))
                 self.lifeCounter += 1
@@ -301,7 +306,8 @@ class MainWindow(qtw.QDialog):
 
             if self.lifeCounter == 4:
                 self.passwordLabel.setText(
-                    ' '.join(self.guessedpassword)+"\n\nYou Lost! ;-)")
+                    " ".join(self.guessedpassword) + "\n\nYou Lost! ;-)"
+                )
         else:
             self.lifeCounter += 1  # to handle click send on create
 
@@ -313,13 +319,17 @@ class MainWindow(qtw.QDialog):
         for id in range(self.letterLayout.count()):
             self.letterLayout.itemAt(id).widget().deleteLater()
 
+    def disableAllLetters(self):
+        for id in range(self.letterLayout.count()):
+            self.letterLayout.itemAt(id).widget().setDisabled(True)
+
     def findAllOccurencies(self, letter: str) -> list[int]:
         return [i for i, l in enumerate(self.password) if l == letter]
 
     def setPassword(self, password: str):
         self.password = password.upper()
-        self.guessedpassword = ['_' for _ in password]
-        self.passwordLabel.setText(' '.join(self.guessedpassword))
+        self.guessedpassword = ["_" for _ in password]
+        self.passwordLabel.setText(" ".join(self.guessedpassword))
 
     def terminate(self):
         Qt.QCoreApplication.quit()
@@ -333,7 +343,7 @@ class LetterButton(qtw.QPushButton):
         self.animateClick(1)
 
 
-if __name__ == '__main__':
-    app = qtw.QApplication(sys.argv)
+if __name__ == "__main__":
+    app = qtw.QApplication([])
     w = MainWindow()
     sys.exit(app.exec())

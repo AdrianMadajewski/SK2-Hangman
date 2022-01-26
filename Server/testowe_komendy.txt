@@ -33,4 +33,4 @@ ZGADYWANIE LITERY
         // nie robi nic ale imo powinien but k
 
         JESLI nie wygral ani nie przegral to zwieksza odpowiednie zmienne i odsyla komunikat do WSZYSTKICH (siebie tez)
-        {rozmiar}{5 - GUESS}{jego_nickname}{jego_trafione}:{jego_nietrafione}
+        {rozmiar}{5 - GUESS}{jego_nickname}{jego_trafione}:{jego_nietrafione} 
