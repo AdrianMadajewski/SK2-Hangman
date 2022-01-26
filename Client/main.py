@@ -110,7 +110,7 @@ class MainWindow(qtw.QDialog):
         btn.setDown(True)
         btn.setStyleSheet('color: "#E5E5E5"')
         # FIXME: READY MESSAGE TO SERVER
-        self.com.addTexttoQueue(Message("1", Message.ready_code))
+        self.com.addTexttoQueue(Message("", Message.ready_code))
 
     def updatePlayersInfo(self):
         if self.playersCount == 1:
@@ -202,7 +202,7 @@ class MainWindow(qtw.QDialog):
         self.playersTable.setRowCount(0)
         # FIXME: format score pewnie sie zmieni na cos w stylu trafione/stracone wiec klucz bedize do zmiany
         # ale działa póki co
-        for desc, price in sorted(self.playersDict.items(), key=lambda x: -int(x[1])):
+        for desc, price in sorted(self.playersDict.items(), key=lambda x: -x[1][0]/x[1][1]):
             self.playersTable.insertRow(0)
             name = qtw.QTableWidgetItem(desc)
             name.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
@@ -215,7 +215,7 @@ class MainWindow(qtw.QDialog):
         self.HangmanImage = qtw.QLabel()
         layout = qtw.QGridLayout()
         playersTable = qtw.QTableWidget()  # Table widget IS scrollable by default
-        playersDict = {"Player1": 1, "Player2": 5, "p3": 123, "p5": 2137, "p4": 12213}
+        playersDict = {}
         self.playersDict = playersDict
         self.playersTable = playersTable
 

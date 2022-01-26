@@ -148,17 +148,17 @@ class Communication:
         )
 
         if msg.code == msg.new_player:
-            if msg.text.isnumeric():  # received id, need to save it to file
-                with open(f"{directory}/id.txt", "w+") as f:
-                    f.write(msg.text)
-            else:
-                self.GUI.setErrorScene(
-                    """This nick is taken!
-                    \nPlease connect once more with different name ;-)"""
-                )
+            self.GUI.playersDict[msg.text] = (0,0)
+            # if msg.text.isnumeric():  # received id, need to save it to file
+            #     with open(f"{directory}/id.txt", "w+") as f:
+            #         f.write(msg.text)
+            
+                # self.GUI.setErrorScene(
+                #     """This nick is taken!
+                #     \nPlease connect once more with different name ;-)"""
+                # )
 
-        elif msg.code == msg.ready_code:
-            self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+       
 
         elif msg.code == msg.new_host:
 
@@ -176,7 +176,7 @@ class Communication:
 
         elif msg.code == msg.guessed_letter:
             player, guessed, missed = msg.text.split(":")
-            self.GUI.playersDict[player] = f"{guessed}/{missed}"
+            self.GUI.playersDict[player] = (int(guessed),int(missed))
             self.GUI.updateLeaderBoard()
 
         elif msg.code == msg.winner_code:
@@ -216,6 +216,8 @@ class Communication:
 
         elif msg.code == msg.new_password:
             self.GUI.setPassword(msg.text)
+            self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
+            
 
         else:  # default case
             self.GUI.setErrorScene("No idea what happened")
@@ -225,16 +227,16 @@ class Communication:
 
 class Message:
     # TODO: ZMIENIC NA ZNAKI
-    new_host = 1
-    new_player = 2
+    new_host = 0
+    new_player = 1
     ready_code = 3
-    guessed_letter = 4
-    winner_code = 5
-    reconnect_code = 6
-    new_password = 7
+    guessed_letter = 5
+    winner_code = 6
+    reconnect_code = 8
+    new_password = 4
 
     def __init__(self, text: str, code=None):
-        if code:
+        if code is not None:
             self.code: int = int(code)
             self.text: str = text
 
