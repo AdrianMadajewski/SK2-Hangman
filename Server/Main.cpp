@@ -15,12 +15,13 @@ int main(int argc, char **argv)
 {
     if(argc != 2) 
     {
-        std::cout << "Usage: " + std::string(argv[0]) + " <port>" << std::endl;
+        std::cout << "Usage: " + std::string(argv[0]) + " <config.cfg>" << std::endl;
         exit(1);
     }
-    long server_port = readPort(argv[1]);
-    std::cout << "Port assigned succesfully: " << server_port << std::endl;
 
+    std::vector<std::string> config = getFileContents(std::string(argv[1]));
+
+    long server_port = readPort(config[1].c_str());
     int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(server_socket == -1) error("Server socket initial failure", ErrorCode::FATAL);
 
@@ -36,16 +37,26 @@ int main(int argc, char **argv)
 
     // INADDR ANY TRZEBA BEDZIE ZMIENIC NA DOWOLNY ADRES
 
-    sockaddr_in server_addr {
-        .sin_family=AF_INET,
-        .sin_port=htons((short)(server_port)),
-        .sin_addr={INADDR_ANY}
-    };
+    // Zero initialize server_addr
+    sockaddr_in server_addr {};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons((short)(server_port));
+    server_addr.sin_addr.s_addr = inet_addr(config[0].c_str());
 
     int err = bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
     if(err) error("Bind socket failed", ErrorCode::FATAL);
 
+    std::cout << "Port assigned succesfully: " << server_port << std::endl;
     std::cout << "Server socket binded" << std::endl;
+
+    // Add files
+    std::vector<std::string> words = getFileContents(config[2]);
+
+    // Set statics
+    Client::setWords(words);
+    Client::setIndex(MyRandom::generateNumber(0, words.size()));
+    
+    std::cout << "Random word set" << std::endl; 
 
     const int LISTEN_CAP = 1;
     err = listen(server_socket, 1);
@@ -59,13 +70,13 @@ int main(int argc, char **argv)
     epoll_event ee {EPOLLIN, {.ptr = &server}};
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &ee);
 
-    std::cout << "Epoll initalized - server added to epoll-fd" << std::endl;
+    std::cout << "Epoll initalized - server added to epoll-fd" << std::endl; 
 
     while(true) {
         std::cout << "Waiting for event..." << std::endl; 
         // Epoll wait max 1 event -1 timeout (infinite)
         if(epoll_wait(epoll_fd, &ee, 1, -1) == -1) {
-            ::error(0, errno, "epoll_wait failed");
+            ::error(0, errno, "Epoll wait failed");
             ctrl_c(SIGINT, server_socket);
         }
 

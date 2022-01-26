@@ -23,17 +23,27 @@ Client::~Client()
     );
 
     sendToAllButOne(this, info);
-    serverMessage("Removing connection from: ");
+    displayMessage("Removing connection from: ");
     s_clients.erase(this);
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, m_socket, nullptr);
     shutdown(m_socket, SHUT_RDWR);
     close(m_socket);
 }
 
-void Client::serverMessage(const std::string &message) const
+void Client::setWords(const std::vector<std::string> &words)
+{
+   s_words = words;
+}
+
+void Client::displayMessage(const std::string &message) const
 {
     std::cout << message <<  inet_ntoa(m_address.sin_addr) << ":" << ntohs(m_address.sin_port) <<
             " (fd: " << m_socket << ")" << std::endl;
+}
+
+void Client::setIndex(const int index)
+{
+    s_index = index;
 }
 
 void Client::handleEvent(uint32_t events) 
@@ -61,7 +71,7 @@ void Client::handleEvent(uint32_t events)
                 // size - 1 because builder adds + 1 for message code
                 MessageBuilder info(code, data.substr(1, data.size()), in_message_size - 1);
                 
-                serverMessage("Message received from: ");
+                displayMessage("Message received from: ");
                 std::cout << info << std::endl;
 
                 handleReceivedMessage(info);
@@ -121,7 +131,7 @@ void Client::setNickname(const std::string &nickname)
     
 void Client::sendToOne(Client *client, const MessageBuilder &message)
 {
-    serverMessage("Message send to: ");
+    displayMessage("Message send to: ");
     std::cout << message << std::endl;
     if(send(client->m_socket, message.serialize().data(), message.serialize().size(), 0) > 0) {
         return;
@@ -153,8 +163,8 @@ void Client::hostReady()
     if(this->m_host)
     {
         MessageBuilder ready(MessageCode::PASSWORD,
-            s_word,
-            s_word.size()
+            s_words[s_index],
+            s_words[s_index].size()
         );
 
         sendToAll(ready);
@@ -164,7 +174,7 @@ void Client::hostReady()
 void Client::guessed_letter(const std::string &message)
 {
     // Check for winner
-    if(this->m_guessed == this->s_word.size() && this->m_missed != MAX_GUESS)
+    if(this->m_guessed == static_cast<int>(this->s_words[s_index].size()) && this->m_missed != MAX_GUESS)
     {
         MessageBuilder winner(
             MessageCode::WINNER,
@@ -185,11 +195,11 @@ void Client::guessed_letter(const std::string &message)
     // Normal gameplay
     if(message[0] == '0') 
     {
-         m_missed++;
+        this->m_missed++;
     }
     else if(message[0] == '1')
     {
-        m_guessed++;
+        this->m_missed++;
     }  
     
     // Update all clients with ranking

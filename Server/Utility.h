@@ -11,6 +11,7 @@
 
 #include <random>
 #include <iostream>
+#include <fstream>
 
 enum ErrorCode
 {
@@ -24,7 +25,7 @@ namespace MyRandom
 	static std::random_device rd;
 	static std::mt19937 seed(rd());
 
-	static int generateNumber(const int min, const int max)
+	inline static int generateNumber(const int min, const int max)
 	{
 		std::uniform_int_distribution<> die{ min, max };
 		return die(MyRandom::seed);
@@ -34,6 +35,7 @@ namespace MyRandom
 void error(const std::string &message, ErrorCode error = ErrorCode::FAILURE);
 void setReuseAddress(int socket);
 void ctrl_c(const int, int server_socket);
-uint16_t readPort(char *string);
+uint16_t readPort(const char *string);
+std::vector<std::string> getFileContents(const std::string &filename);
 
 #endif
