@@ -9,7 +9,7 @@
 
 extern int epoll_fd;
 
-// ZROB SOBIE MAKEFILE CIOTO
+// ZROB SOBIE MAKEFILE CIOTO #ten mądry zrobił
 
 int main(int argc, char **argv)
 {
