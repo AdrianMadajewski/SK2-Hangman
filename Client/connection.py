@@ -2,10 +2,10 @@ import logging
 import select
 import socket
 import threading
-from os.path import exists
+from os.path import exists,dirname 
 from queue import Queue
-
 import PyQt5.QtWidgets as qtw
+directory = dirname(__file__)
 
 
 class Communication:
@@ -35,7 +35,6 @@ class Communication:
                 msg_size_bytes = self.read_n_bytes(s, 2)
                 if msg_size_bytes:
                     msg_size = int(msg_size_bytes.decode("UTF-8"))
-
 
                 if self.connectionStable:
                     message = self.read_n_bytes(s, msg_size).decode("UTF-8")
@@ -91,7 +90,7 @@ class Communication:
                 logging.error(e)
                 self.conectionstable = False
                 break
-        
+
         return ret
 
     def write(self, s: socket):
@@ -105,10 +104,10 @@ class Communication:
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
 
             if ready_to_write:
-               
+
                 logging.info(f"Sending {message.text} with code: {message.code}")
                 self.mysendall(s, (str(message)).encode("UTF-8"))
-                
+
             else:
                 logging.warning("timed out on write Queue")
                 # TODO: handling timeout + change time limit to 30(?)
@@ -144,11 +143,13 @@ class Communication:
             writerThread.join()
 
     def handleMessage(self, msg: "Message") -> None:
-        logging.info(f"Received Message {'<empty>' if len(msg.text)==0 else msg.text} with code:{msg.code}")
-        
+        logging.info(
+            f"Received Message {'<empty>' if len(msg.text)==0 else msg.text} with code:{msg.code}"
+        )
+
         if msg.code == msg.new_player:
             if msg.text.isnumeric():  # received id, need to save it to file
-                with open("id.txt", "w+") as f:
+                with open(f"{directory}/id.txt", "w+") as f:
                     f.write(msg.text)
             else:
                 self.GUI.setErrorScene(
@@ -182,22 +183,18 @@ class Communication:
             self.GUI.disableAllLetters()
             if msg.text == self.GUI.nickname:
                 self.GUI.passwordLabel.setText(
-                        " ".join(self.GUI.guessedpassword) + "\n\nYou Won!"
-                    )
+                    " ".join(self.GUI.guessedpassword) + "\n\nYou Won!"
+                )
             else:
                 self.GUI.passwordLabel.setText(
                     " ".join(self.GUI.guessedpassword) + "\n\nYou Lost! ;-)"
                 )
-                
-                
-                
-            pass
 
         elif msg.code == msg.reconnect_code:
 
             if msg.text == "sendID":
-                if exists("id.txt"):
-                    with open("id.txt", "r+") as f:
+                if exists(f"{directory}id.txt"):
+                    with open(f"{directory}id.txt", "r+") as f:
                         self.id = f.readline()
                     # send id to let server verify if i was connected
                     self.addTexttoQueue(Message(id, msg.reconnect_code))
@@ -248,9 +245,10 @@ class Message:
 
     def __str__(self):
         return f"{self.length.zfill(2)}{self.code}{self.text}"
+
     @staticmethod
-    def fromString(string:str):
+    def fromString(string: str):
         data = string[2:]
         code = data[0]
         text = data[1:]
-        return Message(text,int(code))
+        return Message(text, int(code))

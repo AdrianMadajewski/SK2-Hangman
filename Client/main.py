@@ -2,6 +2,7 @@ import logging
 import sys
 import threading
 import warnings
+from os.path import exists,dirname
 
 import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as qtw
@@ -14,10 +15,10 @@ warnings.simplefilter("ignore")
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
-
+directory = dirname(__file__)
 
 class MainWindow(qtw.QDialog):
-    life = ["./resources/" + f"life{i}.png" for i in range(5)]
+    life = [f"{directory}/resources/" + f"life{i}.png" for i in range(5)]
     alphabet = list("abcdefghijklmnopqrstuwxyz".upper())
     lifeCounter = -len(alphabet)  # buttons fire callbacks when created
     password = "_".upper()
@@ -31,7 +32,7 @@ class MainWindow(qtw.QDialog):
 
         super().__init__()
 
-        self.setWindowIcon(QIcon("./resources/LogoBlue.png"))
+        self.setWindowIcon(QIcon(f"{directory}/resources/LogoBlue.png"))
         self.setupUi()
         with open("config.txt", "r+") as f:
             self.ip = f.readline()[:-1]
@@ -47,7 +48,7 @@ class MainWindow(qtw.QDialog):
         self.GameScene = qtw.QWidget()
         self.ErorrScene = qtw.QWidget()
 
-        stylesheet = open("stylesheet.css").read()
+        stylesheet = open(f"{directory}/stylesheet.css").read()
         scenes = [self.WelcomeScene, self.WaitingRoom, self.GameScene, self.ErorrScene]
         for scene in scenes:
             scene.setStyleSheet(stylesheet)
@@ -159,7 +160,7 @@ class MainWindow(qtw.QDialog):
         self.com = Communication(GUIReference=self, address=self.ip, port=self.port)
         threading.Thread(target=self.com.run).start()
 
-        with open("id.txt", "r") as f:
+        with open(f"{directory}/id.txt", "r") as f:
             self.id = f.readline()
         self.com.isHost = id == 0
         self.com.addTexttoQueue(Message(str(self.id), code=Message.reconnect_code))
@@ -343,7 +344,6 @@ class LetterButton(qtw.QPushButton):
 
 
 if __name__ == "__main__":
-
     app = qtw.QApplication([])
     w = MainWindow()
     sys.exit(app.exec())
