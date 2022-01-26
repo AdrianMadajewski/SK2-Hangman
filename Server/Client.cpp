@@ -193,7 +193,7 @@ void Client::guessed_letter(const std::string &message)
     }  
     
     // Update all clients with ranking
-    // nick{trafione}:{nietrafione}
+    // nick:{trafione}:{nietrafione}
 
     std::string response = this->m_nickname +":" +std::to_string(this->m_guessed) + ":" + std::to_string(this->m_missed);
     MessageBuilder info(
