@@ -13,9 +13,38 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
+#include <list>
+#include <sstream>
+#include <cstring>
 
 class Client : public Handler
 {
+    struct Buffer
+    {
+        bool message_length_read = false;
+        Buffer() { data = (char*)malloc(length); }
+
+        ~Buffer() { free(data); }
+        Buffer(const char* srcData, ssize_t srcLen) : length(srcLen) { data = (char*) malloc(length); memcpy(data, srcData, length);}
+        Buffer(const Buffer&) = delete;
+        void doubleSize() { length *= 2; data = (char*) realloc(data, length); }
+    
+        ssize_t remaining() { return length - position; }
+        char *dataCurrentPosition() { return data + position; }
+
+        ssize_t gotten_length;
+        int current_message_length = 0;
+
+        char *data;
+        ssize_t length = 32;
+        ssize_t position = 0;
+    };
+
+    Buffer readBuffer;
+    std::list<Buffer> dataToWrite;
+
+    void waitForWrite(bool epollout);
+
 public:
     Client(int socket, sockaddr_in adress);
     virtual ~Client();
@@ -50,7 +79,7 @@ public:
     sockaddr_in getAddress() const { return m_address; }
 
     // Util
-    void displayMessage(const std::string &message) const;
+    std::string currentConnectionInfo() const;
 
     
 private:

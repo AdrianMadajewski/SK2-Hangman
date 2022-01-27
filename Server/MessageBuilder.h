@@ -32,7 +32,7 @@ private:
     std::string m_contents;
 public:  
     MessageBuilder(MessageCode code, const std::string &message, int length) : 
-        m_message_length(length + 1), m_code(code), m_contents(message) {}
+        m_message_length(length), m_code(code), m_contents(message) {}
     MessageBuilder(MessageCode code) : m_message_length(0), m_code(code), m_contents("") {}
     int getMessageLength() const { return m_message_length; } 
     MessageCode getMessageCode() const { return m_code; } 

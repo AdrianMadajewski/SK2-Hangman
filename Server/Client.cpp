@@ -1,11 +1,19 @@
 #include "Client.h"
 #include "MessageBuilder.h"
 
+// Gdy klient usuwany jest z listy klientow przez zajety nickname to wiadomosc powinno isc tylko do niego (a idzie do wszystkich REMOVE a do niego NICK_TAKEN)
+// do tego nie jest ustawiany jego nickname - fix bo contents dostaje NONE
+
 int epoll_fd;
+
+void Client::waitForWrite(bool epollout) {
+        epoll_event ee {EPOLLIN | EPOLLRDHUP | (epollout == true ? EPOLLOUT : 0), {.ptr = this}};
+        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, m_socket, &ee);
+}
 
 Client::Client(int socket, sockaddr_in client_address) : Handler(socket)
 {
-    epoll_event ee {EPOLLIN|EPOLLRDHUP, {.ptr=this}};
+    epoll_event ee {EPOLLIN | EPOLLRDHUP, {.ptr=this}};
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, this->m_socket, &ee);
     m_address = client_address;
     m_host = (s_id == 0 ? true : false);
@@ -23,7 +31,7 @@ Client::~Client()
     );
 
     sendToAllButOne(this, info);
-    displayMessage("Removing connection from: ");
+    std::cout << currentConnectionInfo() << " Removing connection" << std::endl;
     s_clients.erase(this);
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, m_socket, nullptr);
     shutdown(m_socket, SHUT_RDWR);
@@ -35,10 +43,11 @@ void Client::setWords(const std::vector<std::string> &words)
    s_words = words;
 }
 
-void Client::displayMessage(const std::string &message) const
+std::string Client::currentConnectionInfo() const
 {
-    std::cout << message <<  inet_ntoa(m_address.sin_addr) << ":" << ntohs(m_address.sin_port) <<
-            " (fd: " << m_socket << ")" << std::endl;
+    std::stringstream ss;
+    ss << "[" << inet_ntoa(m_address.sin_addr) << ":" << ntohs(m_address.sin_port) << "]";
+    return ss.str();
 }
 
 void Client::setIndex(const int index)
@@ -48,46 +57,96 @@ void Client::setIndex(const int index)
 
 void Client::handleEvent(uint32_t events) 
 {   
-    // MAKE THIS ASSYNCHRONOUS
     if(events & EPOLLIN) {
-        int in_message_size;
-        char buffer[2]{};
-        int count = recv(m_socket, &buffer, 2, MSG_WAITALL);
-
-        in_message_size = atoi(buffer);
-
-        if(count > 0)
+        if(readBuffer.message_length_read)
         {
-            // Received data (in_message_size) - how many bytes was sent
-            std::string data(in_message_size, 0);
-            count = recv(m_socket, (void*)data.data(), in_message_size, MSG_WAITALL);
-
-            // Received more data - full serialized message
-            if(count > 0)
-            {
-                // Size already gotten
-                MessageCode code = static_cast<MessageCode>(data[0] - '0'); 
-                // substr - code already gotten
-                // size - 1 because builder adds + 1 for message code
-                MessageBuilder info(code, data.substr(1, data.size()), in_message_size - 1);
-                
-                displayMessage("Message received from: ");
-                std::cout << info << std::endl;
-
-                handleReceivedMessage(info);
-
-            }
-            else // Set error flag
+            ssize_t count = read(m_socket, readBuffer.dataCurrentPosition(), readBuffer.current_message_length);
+            if(count <= 0)
                 events |= EPOLLERR;
+            else {
+                // Read count bytes to position
+                readBuffer.position += count;
 
+                if(readBuffer.position == readBuffer.current_message_length)
+                {
+                    std::cout << currentConnectionInfo() << " Full message received" << std::endl;
+                    // Got full message
+                    MessageCode code = static_cast<MessageCode>(readBuffer.data[0] - '0');
+                    std::string message_received{};
+
+                    // Read message length bytes
+                    for(int i = 1; i < readBuffer.current_message_length; i++)
+                    {
+                        message_received += readBuffer.data[i];
+                    }
+
+                    MessageBuilder message(code, message_received, readBuffer.current_message_length);
+                    std::cout << currentConnectionInfo() << " Message received: " << std::endl;
+                    std::cout << message << std::endl;
+
+                    // Send message (add to queue)
+                    handleReceivedMessage(message);
+
+                    // Empty data buffer
+                    readBuffer.current_message_length = 0;
+                    readBuffer.position = 0;
+                    readBuffer.message_length_read = false;
+                }
+            }   
         }
-        else // Set error flag
-            events |= EPOLLERR;
-        
+        else {
+             // Proceed with normal read
+            // Non blocking read for 2 bytes
+            ssize_t count = read(m_socket, readBuffer.dataCurrentPosition(), 2);
+            if(count <= 0)
+                events |= EPOLLERR;
+            else {
+               
+                readBuffer.position += count;
+
+                // If read 2 bytes (message size) and message size was not setted yet
+                if(readBuffer.position == 2 && !readBuffer.message_length_read)
+                {
+                    std::cout <<  currentConnectionInfo() << " Received incoming message length" << std::endl;
+                    // Set message length
+                    readBuffer.current_message_length = (readBuffer.data[0] - '0') * 10 + (readBuffer.data[1] - '0');
+                    // Proceed to read after 2 bytes of message length
+                    readBuffer.position = 0;
+                    readBuffer.message_length_read = true;
+                    
+                }
+            }
+        }
+    }
+
+    // Event triggered by not sending full message
+    if(events & EPOLLOUT) {   
+        std::cout << currentConnectionInfo() << " Sending partial data" << std::endl;
+        do {   
+            // See what's left to send
+            int remaining = dataToWrite.front().remaining();
+
+            // Send what's left in non blocking mode
+            int sent = send(m_socket, dataToWrite.front().data + dataToWrite.front().position, remaining, MSG_DONTWAIT);
+            if(sent == remaining) {
+                std::cout << currentConnectionInfo() << " Full message sent" << std::endl;
+                dataToWrite.pop_front();
+                if(dataToWrite.size() == 0) {
+                    waitForWrite(false);
+                    break;
+                }
+                continue;
+            } else if (sent == -1) {
+                if(errno != EWOULDBLOCK && errno != EAGAIN)
+                    events |= EPOLLERR;
+            } else {
+                dataToWrite.front().position += sent;
+            }
+        } while(false);
     }
    
     // Fatal error occured on client socket
-    if(events & ~EPOLLIN) {
+    if(events & ~(EPOLLIN | EPOLLOUT)) {
         delete this;
     }
 }
@@ -131,12 +190,43 @@ void Client::setNickname(const std::string &nickname)
     
 void Client::sendToOne(Client *client, const MessageBuilder &message)
 {
-    displayMessage("Message send to: ");
+    std::cout << this->currentConnectionInfo() << " sending message to: " << client->currentConnectionInfo() << std::endl;
     std::cout << message << std::endl;
-    if(send(client->m_socket, message.serialize().data(), message.serialize().size(), 0) > 0) {
+    std::string messageToSend = message.serialize();
+    int messageSize = messageToSend.size();
+
+    // We have more messages being processed hence wait for them to finish
+    if(dataToWrite.size() != 0) {
+        dataToWrite.emplace_back(messageToSend.data(), messageSize);
         return;
     }
-    error("Send failed to client: " + client->m_nickname);
+
+    // Non blockling send
+    int sent = send(client->m_socket, messageToSend.data(), messageSize, MSG_DONTWAIT);
+    if(sent == messageSize) {
+        // Full message has been send
+        std::cout << currentConnectionInfo() << " Full message sent (no queue)" << std::endl;
+        return;
+    }
+    // Either message buffer blocked or fatal error
+    if(sent == -1) {
+        // Fatal error - remove connection
+        if(errno != EWOULDBLOCK && errno != EAGAIN) {
+            delete client;
+            return;
+        }
+
+        std::cout << currentConnectionInfo() << " Message cannot be send hence placing it on the wait list" << std::endl;
+        // Message failed send (ewouldblock == true || egain == true)
+        // Place it back on buffer
+        dataToWrite.emplace_back(messageToSend.data(), messageSize);
+    } else {
+        std::cout << currentConnectionInfo() << " Message send partially hence placing the rest on the wait list" << std::endl;
+        // Message send but not fully hence send what's left
+        dataToWrite.emplace_back(messageToSend.data() + sent, messageSize - sent);
+    }
+    std::cout << currentConnectionInfo() << " Waiting for write" << std::endl;
+    waitForWrite(true);
 }
 
 void Client::sendToAllButOne(Client* theClient, const MessageBuilder &message)
@@ -259,15 +349,15 @@ void Client::newPlayer(const std::string &nickname)
     {
         for(auto &client : s_clients) {
             if(client->m_nickname == nickname) {
-                std::cout << "Invalid nickname - duplicate: " << nickname << std::endl;
+                std::cout << currentConnectionInfo() << "Invalid nickname - duplicate: " << nickname << std::endl;
                 // MessageBuilder::Info info(MessageBuilder::NICK_TAKEN, "taken");
                 MessageBuilder info(
                     MessageCode::NICK_TAKEN
                 );
 
-                sendToOne(client, info);
+                sendToOne(this, info);
                 // to cie wykurwia z bazy calkowicie i wysyla wiadomosc o remove do reszty
-                delete client;
+                delete this;
                 // ale jakbys mial to wyjebac to tu musisz odeslac wiadomosc do tego gracza ze ma NICK_TAKEN
                 // MessageBuilder info(MessageCode::NICK_TAKEN);
                 // sendToOne(this, info);

@@ -36,7 +36,7 @@ std::string MessageBuilder::serialize() const
 
 std::ostream& operator<<(std::ostream& stream, const MessageBuilder& builder)
 {
-    stream << "Builder[" << std::endl << 
+    stream << "Message[" << std::endl << 
         " length = " << builder.m_message_length << "," << std::endl << 
         " code = " << MessageCodeToString(builder.m_code) << "," << std::endl <<
         " contents = " << (builder.m_contents.length() == 0 ? "NONE" : builder.m_contents) << std::endl <<

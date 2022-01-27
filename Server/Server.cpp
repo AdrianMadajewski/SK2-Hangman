@@ -11,7 +11,7 @@ void ServerHandler::handleEvent(uint32_t events) {
         // Oddajemy sterowanie do poszczegolnych klientow
         Client *client = new Client(client_fd, client_address);
 
-        client->displayMessage("New connection: ");
+        std::cout << client->currentConnectionInfo() << " New connection established" << std::endl;
     }
 
     if(events & ~EPOLLIN) {

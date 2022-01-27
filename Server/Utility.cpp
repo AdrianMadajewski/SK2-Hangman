@@ -24,7 +24,7 @@ void setReuseAddress(int socket)
 {
     static const int one = 1;
     int result = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-    if(result) error("Reuse address control failed", ErrorCode::FATAL);
+    if(result) error("[SERVER]: Reuse address control failed", ErrorCode::FATAL);
 }
 
 uint16_t readPort(const char *string)
@@ -33,7 +33,7 @@ uint16_t readPort(const char *string)
 	auto port = strtol(string, &end, 10);
 	if(*end != 0 || port < 1 || port > 65535)
 	{
-		error("Illegal argument - port", ErrorCode::FATAL);
+		error("[SERVER]: Illegal argument - port", ErrorCode::FATAL);
 	}
     return port;
 }
@@ -45,14 +45,14 @@ void ctrl_c(int, int server_socket)
         delete client;
     }
     close(server_socket);
-    printf("Closing server\n");
+    printf("[SERVER]: Closing server\n");
     exit(0);
 }
 
 std::vector<std::string> getFileContents(const std::string &filename)
 {
     if (filename.empty()) {
-		std::cerr << "Empty filename - quiting." << '\n';
+		std::cerr << "[SERVER]: Ivalid filename" << std::endl;
 		exit(1);
 	}
 
@@ -61,11 +61,11 @@ std::vector<std::string> getFileContents(const std::string &filename)
 	file.open(filename);
 
 	if (!file.is_open()) {
-		std::cerr << "Couldn't find the file. Please restart." << '\n';
+		std::cerr << "[SERVER]: Couldn't find config file: " << filename << std::endl;
 		exit(1);
 	}
 	else {
-		std::cout << "Succesfully read from file " << filename << '\n';
+		std::cout << "[SERVER]: Succesfully read from file " << filename << std::endl;
 		
 		while (!file.eof()) {
 			std::string string;
