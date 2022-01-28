@@ -2,9 +2,9 @@ import logging
 import select
 import socket
 import threading
-from os.path import exists,dirname 
+from os.path import dirname, exists
 from queue import Queue
-import PyQt5.QtWidgets as qtw
+
 directory = dirname(__file__)
 
 
@@ -15,15 +15,18 @@ class Communication:
 
     def __init__(
         self,
-        GUIReference: qtw.QDialog = None,
+        GUIReference: "MainWindow" = None,
         address: str = "127.0.0.1",
         port: int = 2137,
         isHost: bool = False,
+        queue=None,
     ):
+        if queue is not None:
+            self.messageQueue = queue
         self.address: str = address
         self.port: int = port
         self.isHost: bool = isHost
-        self.GUI = GUIReference
+        self.GUI: "MainWindow" = GUIReference
 
     def listen(self, s: socket):
         while self.connectionStable:
@@ -56,11 +59,17 @@ class Communication:
                 self.GUI.QtStack.setWindowTitle("Hangman!")
 
                 if chunk == b"":
-                    self.connectionStable = False
-                    self.GUI.setErrorScene(
-                        "Server closed connection", allowReconnect=True
-                    )
+                    logging.warning("Connection closed")
+                    if self.GUI.forceCancel:
+                        self.GUI.forceCancel=True
+                        return None
+
+                    if self.GUI.QtStack.currentWidget() != self.GUI.ErorrScene:
+                        self.GUI.setErrorScene(
+                            "Server closed connection", allowReconnect=True
+                        )
                     return None
+
             except socket.timeout as e:
 
                 logging.error("Timed out on socket read between chunks")
@@ -100,12 +109,19 @@ class Communication:
         # then it will block on select, which should respect timeout unlike get
 
         while self.connectionStable:
+
             message: str = self.messageQueue.get(block=True)
+            # if not (self.connectionStable):
+            #     self.messageQueue.put(message)
+            #     break  # to jest potrzebne
+
+            print(f"wyszedlem z bloka socket {s}")
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
 
             if ready_to_write:
 
                 logging.info(f"Sending {message.text} with code: {message.code}")
+                logging.error(f"{message} on socket {s}")
                 self.mysendall(s, (str(message)).encode("UTF-8"))
 
             else:
@@ -114,13 +130,6 @@ class Communication:
 
     def addTexttoQueue(self, text):
         self.messageQueue.put(text)
-
-    def getMessage(self) -> "Message":
-        try:
-            msg = self.readQueue.get(block=True, timeout=self.timeLimit)
-        except BaseException:
-            msg = "9##!"
-        return msg
 
     def run(self):
         self.messageQueue.queue.clear()
@@ -147,39 +156,38 @@ class Communication:
             f"Received Message {'<empty>' if len(msg.text)==0 else msg.text} with code:{msg.code}"
         )
 
-        if msg.code == msg.new_player:
-            self.GUI.playersDict[msg.text] = (0,0)
+        if msg.code == msg.NEW_PLAYER:
+            self.GUI.playersDict[msg.text] = (0, 0)
             # if msg.text.isnumeric():  # received id, need to save it to file
             #     with open(f"{directory}/id.txt", "w+") as f:
             #         f.write(msg.text)
-            
-                # self.GUI.setErrorScene(
-                #     """This nick is taken!
-                #     \nPlease connect once more with different name ;-)"""
-                # )
 
-       
 
-        elif msg.code == msg.new_host:
+        elif msg.code == msg.NICK_TAKEN:
+            self.GUI.setErrorScene(
+                """This nick is taken!
+                \nPlease connect once more with different name ;-)"""
+            )
+        elif msg.code == msg.HOST_INIT:
 
             if msg.text.isnumeric():  # received id, need to save it to file
-                self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
-
                 # FIXME: Czy host musi zapisywać id? Gra bez hosta chyba powinna sie skończyć
-                # with open("id.txt", "w+") as f:
-                #     f.write(msg.text)
+                with open("id.txt", "w+") as f:
+                    f.write(msg.text)
             else:
-                self.GUI.setErrorScene(
-                    """This nick is taken!
-                    \nPlease connect once more with different name ;-)"""
-                )
+                if msg.text == "NOHOST":
+                    self.GUI.setErrorScene("""There is no host in this game""")
+                else:
+                    self.GUI.setErrorScene(
+                        """There is already another host in this game"""
+                    )
 
-        elif msg.code == msg.guessed_letter:
+        elif msg.code == msg.GUESS:
             player, guessed, missed = msg.text.split(":")
-            self.GUI.playersDict[player] = (int(guessed),int(missed))
+            self.GUI.playersDict[player] = (int(guessed), int(missed))
             self.GUI.updateLeaderBoard()
 
-        elif msg.code == msg.winner_code:
+        elif msg.code == msg.WINNER:
             self.GUI.disableAllLetters()
             if msg.text == self.GUI.nickname:
                 self.GUI.passwordLabel.setText(
@@ -190,14 +198,14 @@ class Communication:
                     " ".join(self.GUI.guessedpassword) + "\n\nYou Lost! ;-)"
                 )
 
-        elif msg.code == msg.reconnect_code:
+        elif msg.code == msg.RECONNECT:
 
             if msg.text == "sendID":
                 if exists(f"{directory}id.txt"):
                     with open(f"{directory}id.txt", "r+") as f:
                         self.id = f.readline()
                     # send id to let server verify if i was connected
-                    self.addTexttoQueue(Message(id, msg.reconnect_code))
+                    self.addTexttoQueue(Message(id, msg.RECONNECT))
                 else:  # cant find id file
                     self.GUI.setErrorScene(
                         "You weren't playing in this game\n Please wait for the game to end"
@@ -214,10 +222,14 @@ class Communication:
             else:
                 logging.error("Unknown Message Code")
 
-        elif msg.code == msg.new_password:
+        elif msg.code == msg.PASSWORD:
+            self.GUI.updateLeaderBoard()
             self.GUI.setPassword(msg.text)
             self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
-            
+
+        elif msg.code == msg.REMOVE:
+            if msg.text != "":
+                self.GUI.playersDict.pop(msg.text)
 
         else:  # default case
             self.GUI.setErrorScene("No idea what happened")
@@ -226,14 +238,18 @@ class Communication:
 
 
 class Message:
-    # TODO: ZMIENIC NA ZNAKI
-    new_host = 0
-    new_player = 1
-    ready_code = 3
-    guessed_letter = 5
-    winner_code = 6
-    reconnect_code = 8
-    new_password = 4
+
+    ERROR = -1
+    HOST_INIT = 0
+    NEW_PLAYER = 1
+    NICK_TAKEN = 2
+    HOST_READY = 3
+    PASSWORD = 4
+    GUESS = 5
+    WINNER = 6
+    RESET = 7
+    RECONNECT = 8
+    REMOVE = 9
 
     def __init__(self, text: str, code=None):
         if code is not None:
@@ -254,3 +270,9 @@ class Message:
         code = data[0]
         text = data[1:]
         return Message(text, int(code))
+
+
+if __name__ == "__main__":
+    from main import MainWindow
+
+    pass

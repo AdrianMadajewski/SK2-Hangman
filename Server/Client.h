@@ -74,6 +74,8 @@ public:
     void sendWinner();
     void guessed_letter(const std::string &message);
     void newPlayer(const std::string &nickname);
+    void newHost(const std::string &nickname);
+    void removeRequest();
 
     // Getters
     sockaddr_in getAddress() const { return m_address; }
@@ -97,6 +99,8 @@ private:
 
     sockaddr_in m_address;
     std::string m_nickname;
+
+
 };
 
 #endif

@@ -11,7 +11,6 @@ from PyQt5.QtGui import QIcon, QPixmap
 from connection import Communication, Message
 from FlowLayout import FlowLayout
 
-warnings.simplefilter("ignore")
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -27,6 +26,7 @@ class MainWindow(qtw.QDialog):
     connected = False
     playersCount = 0
     nickname = ""
+    MessageQueueCopy = None
 
     def __init__(self):
 
@@ -110,7 +110,7 @@ class MainWindow(qtw.QDialog):
         btn.setDown(True)
         btn.setStyleSheet('color: "#E5E5E5"')
         # FIXME: READY MESSAGE TO SERVER
-        self.com.addTexttoQueue(Message("", Message.ready_code))
+        self.com.addTexttoQueue(Message("", Message.HOST_READY))
 
     def updatePlayersInfo(self):
         if self.playersCount == 1:
@@ -130,7 +130,6 @@ class MainWindow(qtw.QDialog):
         readyButton = qtw.QPushButton("I'm Ready")
         cancelButton = qtw.QPushButton("Cancel")
         self.ready = readyButton.isChecked()
-
         layout.addWidget(textLabel, 0, 0)
         layout.addWidget(playersCountLabel, 1, 0)
         layout.addWidget(readyButton)
@@ -157,32 +156,35 @@ class MainWindow(qtw.QDialog):
 
     def reconnect(self):
 
-        self.com = Communication(GUIReference=self, address=self.ip, port=self.port)
+        self.com = Communication(GUIReference=self, address=self.ip, port=self.port,queue = self.MessageQueueCopy)
         threading.Thread(target=self.com.run).start()
 
         with open(f"{directory}/id.txt", "r") as f:
             self.id = f.readline()
         self.com.isHost = id == 0
-        self.com.addTexttoQueue(Message(str(self.id), code=Message.reconnect_code))
+        self.com.addTexttoQueue(Message(str(self.id), code=Message.RECONNECT))
         logging.info("Reconnect Attempt")
 
     def cancelConnection(self):
         self.QtStack.setCurrentWidget(self.WelcomeScene)
-        self.com.connectionStable = False
-        self.com = None
+        self.forceCancel = True
+        if self.com is not None:
+            self.com.addTexttoQueue(Message("",Message.REMOVE))
+            self.com.connectionStable = False
+            self.MessageQueueCopy = self.com.messageQueue
+            self.com = None
+
 
     def goToWaitingRoom(self, text: str, name: str, hostButton=False):
 
-        if not (name.text().isalnum()):
-            name.setText("Please enter valid nickname")
-            return
 
         # initialize comunication
 
         self.QtStack.setCurrentWidget(self.WaitingRoom)
 
+        
         self.com = Communication(
-            GUIReference=self, address=self.ip, port=self.port, isHost=hostButton
+            GUIReference=self, address=self.ip, port=self.port, isHost=hostButton,queue = self.MessageQueueCopy
         )
 
         threading.Thread(target=self.com.run).start()
@@ -190,10 +192,12 @@ class MainWindow(qtw.QDialog):
         self.WaitingRoom.findChild(qtw.QLabel).setText("Waiting for other players...")
         self.nickname = name.text()
         if hostButton:
-            msg = Message(self.nickname, Message.new_host)
+            self.WaitingRoom.findChild(qtw.QPushButton).show()
+            
+            msg = Message(self.nickname, Message.HOST_INIT)
         else:
             self.WaitingRoom.findChild(qtw.QPushButton).hide()
-            msg = Message(self.nickname, Message.new_player)
+            msg = Message(self.nickname, Message.NEW_PLAYER)
 
         self.com.addTexttoQueue(msg)
 
@@ -202,7 +206,7 @@ class MainWindow(qtw.QDialog):
         self.playersTable.setRowCount(0)
         # FIXME: format score pewnie sie zmieni na cos w stylu trafione/stracone wiec klucz bedize do zmiany
         # ale działa póki co
-        for desc, price in sorted(self.playersDict.items(), key=lambda x: -x[1][0]/x[1][1] if x[1][1]>0 else -x[1][0]):
+        for desc, price in sorted(self.playersDict.items(), key=lambda x: x[1][0]/x[1][1] if x[1][1]>0 else x[1][0]):
             self.playersTable.insertRow(0)
             name = qtw.QTableWidgetItem(desc)
             name.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
@@ -287,7 +291,7 @@ class MainWindow(qtw.QDialog):
             self.sender().deleteLater()
 
             if letter in self.password:
-                self.com.addTexttoQueue(Message("1", Message.guessed_letter))
+                self.com.addTexttoQueue(Message("1", Message.GUESS))
 
                 for id in self.findAllOccurencies(letter):
                     self.guessedpassword[id] = letter
@@ -300,7 +304,7 @@ class MainWindow(qtw.QDialog):
                         " ".join(self.guessedpassword) + "\n\nYou Won!"
                     )
             else:
-                self.com.addTexttoQueue(Message("0", Message.guessed_letter))
+                self.com.addTexttoQueue(Message("0", Message.GUESS))
                 self.lifeCounter += 1
                 self.setImage(self.lifeCounter)
 

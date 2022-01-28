@@ -5,7 +5,7 @@
 
 #include <error.h>
 #include <errno.h>
-#include <signal.h> // SIGINT
+#include <signal.h> // SIGIT
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
