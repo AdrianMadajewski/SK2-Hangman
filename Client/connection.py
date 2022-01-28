@@ -111,17 +111,13 @@ class Communication:
         while self.connectionStable:
 
             message: str = self.messageQueue.get(block=True)
-            # if not (self.connectionStable):
-            #     self.messageQueue.put(message)
-            #     break  # to jest potrzebne
+            
 
-            print(f"wyszedlem z bloka socket {s}")
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
 
             if ready_to_write:
 
                 logging.info(f"Sending {message.text} with code: {message.code}")
-                logging.error(f"{message} on socket {s}")
                 self.mysendall(s, (str(message)).encode("UTF-8"))
 
             else:
