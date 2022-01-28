@@ -225,7 +225,7 @@ void Client::newHost(const std::string &nickname)
                             contents.size());
         sendToOne(this, info);
         this->setNickname(nickname);
-        this->m_host = 1;
+        this->m_host = true;
 
         //Żeby host sie dowiedział o sobie
         MessageBuilder sendNickBack(
@@ -320,12 +320,7 @@ void Client::hostReady()
 
         sendToAll(ready);
     }
-    else
-    {
-
-    std::cout << this->m_nickname << "host:" << this->m_host <<" id:" <<this->m_id<< std::endl;
-
-    }
+    
 }
 
 void Client::guessed_letter(const std::string &message)
