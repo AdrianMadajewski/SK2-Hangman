@@ -27,6 +27,7 @@ class MainWindow(qtw.QDialog):
     playersCount = 0
     nickname = ""
     MessageQueueCopy = None
+    forceCancel = False
 
     def __init__(self):
 
@@ -192,10 +193,14 @@ class MainWindow(qtw.QDialog):
         self.WaitingRoom.findChild(qtw.QLabel).setText("Waiting for other players...")
         self.nickname = name.text()
         if hostButton:
+            self.GameScene.findChildren(qtw.QPushButton)[-1].show()
+            
             self.WaitingRoom.findChild(qtw.QPushButton).show()
             
             msg = Message(self.nickname, Message.HOST_INIT)
         else:
+            self.GameScene.findChildren(qtw.QPushButton)[-1].hide()
+            
             self.WaitingRoom.findChild(qtw.QPushButton).hide()
             msg = Message(self.nickname, Message.NEW_PLAYER)
 
@@ -244,11 +249,8 @@ class MainWindow(qtw.QDialog):
         hangmanLayout.addWidget(self.passwordLabel, 20)
         lettersWidget = qtw.QWidget()
         self.letterLayout = FlowLayout()
-        for letter in self.alphabet:
-
-            letterButton = LetterButton(letter)
-            letterButton.clicked.connect(self.gameLogic)
-            self.letterLayout.addWidget(letterButton)
+        self.generateLetters()
+        
 
         self.setImage()
         lettersWidget.setLayout(self.letterLayout)
@@ -260,35 +262,38 @@ class MainWindow(qtw.QDialog):
         # gameMainWidget.setStyleSheet("background-color:red;")
         layout.addWidget(gameMainWidget, 0, 2, 5, 5)
         goBackToLobby = qtw.QPushButton("Go Back!")
-        goBackToLobby.clicked.connect(self.goBack)
+        goBackToLobby.clicked.connect(lambda :self.goBack(True))
         layout.addWidget(goBackToLobby, 6, 6, 1, 1)
 
         self.GameScene.setLayout(layout)
 
-    def goBack(self):
+    def goBack(self,playerisSending = True):
         self.QtStack.setCurrentWidget(self.WaitingRoom)
-
-        self.guessedpassword = ["_" for _ in self.password]
-        self.passwordLabel.setText(" ".join(self.guessedpassword))
-        self.passwordLabel
-
-        self.playersTable = {}
-        self.lifeCounter = -len(self.alphabet)
-        self.deleteAllLetters()
-        for letter in self.alphabet:
-
-            letterButton = LetterButton(letter)
-            letterButton.clicked.connect(self.gameLogic)
-            self.letterLayout.addWidget(letterButton)
+    
+        self.playersDict = {key:(0,0) for key in self.playersDict}
+        self.lifeCounter = 0
+        self.hideAllLetters()
+        
+        if playerisSending: #To prevent loops of messages
+            self.com.addTexttoQueue(Message("",Message.RESET))
+            
+            
         self.setImage()
-
+        
+    def generateLetters(self):
+            for letter in self.alphabet:
+                letterButton = LetterButton(letter)
+                letterButton.clicked.connect(self.gameLogic)
+                self.letterLayout.addWidget(letterButton)
+                
     def gameLogic(self):
 
         letter = self.sender().text()
         isAlive = 0 <= self.lifeCounter < 4
 
         if isAlive:
-            self.sender().deleteLater()
+            self.sender().hide()
+            print(self.sender())
 
             if letter in self.password:
                 self.com.addTexttoQueue(Message("1", Message.GUESS))
@@ -319,13 +324,17 @@ class MainWindow(qtw.QDialog):
         pixmap = QPixmap(self.life[id])
         self.HangmanImage.setPixmap(pixmap.scaled(256, 256))
 
-    def deleteAllLetters(self):
-        for id in range(self.letterLayout.count()):
-            self.letterLayout.itemAt(id).widget().deleteLater()
+    def hideAllLetters(self,hide = True):
+        if hide:
+            for id in range(self.letterLayout.count()):
+                self.letterLayout.itemAt(id).widget().hide()
+        else:
+            for id in range(self.letterLayout.count()):
+                self.letterLayout.itemAt(id).widget().show()
 
-    def disableAllLetters(self):
+    def disableAllLetters(self,disable = True):
         for id in range(self.letterLayout.count()):
-            self.letterLayout.itemAt(id).widget().setDisabled(True)
+            self.letterLayout.itemAt(id).widget().setDisabled(disable)
 
     def findAllOccurencies(self, letter: str) -> list[int]:
         return [i for i, l in enumerate(self.password) if l == letter]

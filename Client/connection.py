@@ -193,7 +193,9 @@ class Communication:
                 self.GUI.passwordLabel.setText(
                     " ".join(self.GUI.guessedpassword) + "\n\nYou Lost! ;-)"
                 )
-
+        elif msg.code == msg.RESET:
+            self.GUI.goBack(playerisSending=False)
+            
         elif msg.code == msg.RECONNECT:
 
             if msg.text == "sendID":
@@ -221,6 +223,8 @@ class Communication:
         elif msg.code == msg.PASSWORD:
             self.GUI.updateLeaderBoard()
             self.GUI.setPassword(msg.text)
+            self.GUI.hideAllLetters(False)
+            self.GUI.disableAllLetters(False)
             self.GUI.QtStack.setCurrentWidget(self.GUI.GameScene)
 
         elif msg.code == msg.REMOVE:
