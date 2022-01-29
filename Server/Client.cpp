@@ -325,9 +325,21 @@ void Client::hostReady()
 
 void Client::guessed_letter(const std::string &message)
 {
+
+    // trzeba NAJPIERW dodac nową litere zeby sprawdzic status
+    if (message[0] == '0')
+    {
+        this->m_missed++;
+    }
+    else if (message[0] == '1')
+    {
+        this->m_guessed++;
+    }
+
     // Check for winner
-    //FIXME: NIE CHCE MI SIE MYŚLEĆ, ALE PO WYGRANIU NIE DZIALA
-    if (this->m_guessed == static_cast<int>(this->s_words[s_index].size()) && this->m_missed != MAX_GUESS)
+    std::string password = s_words[s_index];
+    int letters_to_guess = std::unordered_set<char>(std::begin(password), std::end(password)).size();
+    if (this->m_guessed == letters_to_guess && this->m_missed != MAX_GUESS)
     {
         MessageBuilder winner(
             MessageCode::WINNER,
@@ -344,15 +356,7 @@ void Client::guessed_letter(const std::string &message)
         return;
     }
 
-    // Normal gameplay
-    if (message[0] == '0')
-    {
-        this->m_missed++;
-    }
-    else if (message[0] == '1')
-    {
-        this->m_guessed++;
-    }
+    
 
     // Update all clients with ranking
     // nick:{trafione}:{nietrafione}
