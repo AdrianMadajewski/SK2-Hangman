@@ -1,4 +1,7 @@
+import signal
+
 import logging
+from queue import Queue
 import sys
 import threading
 import warnings
@@ -12,7 +15,8 @@ from connection import Communication, Message
 from FlowLayout import FlowLayout
 
 
-logging.basicConfig()
+logging.basicConfig(format='%(asctime)s %(levelname)s %(funcName)s: %(message)s',
+)
 logging.root.setLevel(logging.INFO)
 directory = dirname(__file__)
 
@@ -342,11 +346,14 @@ class MainWindow(qtw.QDialog):
         self.password = password.upper()
         self.guessedpassword = ["_" for _ in password]
         self.passwordLabel.setText(" ".join(self.guessedpassword))
-
-    def terminate(self):
-        Qt.QCoreApplication.quit()
-        # TODO: FORCE APP TO QUIT
-
+        
+    def exitHandler(self):
+        logging.info("Exit Handler triggered")
+        self.com.messageQueue = Queue()
+        self.com.conectionStable=False
+        self.com.forceQuit = True
+                        
+    
 
 class LetterButton(qtw.QPushButton):
     def __init__(self, text: str):
@@ -354,8 +361,13 @@ class LetterButton(qtw.QPushButton):
         self.setText(text)
         self.animateClick(1)
 
-
+    
+    
+    
+    
 if __name__ == "__main__":
     app = qtw.QApplication([])
     w = MainWindow()
+    app.aboutToQuit.connect(lambda : MainWindow.exitHandler(w))
+    
     sys.exit(app.exec())

@@ -3,8 +3,8 @@ import select
 import socket
 import threading
 from os.path import dirname, exists
-from queue import Queue
-
+from queue import Empty, Queue
+import sys
 directory = dirname(__file__)
 
 
@@ -12,7 +12,7 @@ class Communication:
     messageQueue: Queue = Queue()
     timeLimit: int = 15
     connectionStable: bool = True
-
+    forceQuit = False
     def __init__(
         self,
         GUIReference: "MainWindow" = None,
@@ -30,14 +30,17 @@ class Communication:
 
     def listen(self, s: socket):
         while self.connectionStable:
-
+            
             ready_to_read_message, _, _ = select.select([s], [], [], self.timeLimit)
-
+            
             if ready_to_read_message:
 
                 msg_size_bytes = self.read_n_bytes(s, 2)
                 if msg_size_bytes:
-                    msg_size = int(msg_size_bytes.decode("UTF-8"))
+                    try:
+                        msg_size = int(msg_size_bytes.decode("UTF-8"))
+                    except AttributeError:
+                        logging.error("Received unknown message")
 
                 if self.connectionStable:
                     message = self.read_n_bytes(s, msg_size).decode("UTF-8")
@@ -45,6 +48,8 @@ class Communication:
 
             else:
                 logging.warning("timed out on select")
+                if self.forceQuit:
+                    break
                 # TODO: handling timeout + change time limit to 30(?)
 
     def read_n_bytes(self, s: socket, bytes_count: int) -> bytes:
@@ -99,7 +104,8 @@ class Communication:
                 logging.error(e)
                 self.conectionstable = False
                 break
-
+        info = Message.fromString(data)
+        logging.info(f"Sent message {info.text} with code {info.code}")
         return ret
 
     def write(self, s: socket):
@@ -110,7 +116,13 @@ class Communication:
 
         while self.connectionStable:
 
-            message: str = self.messageQueue.get(block=True)
+            
+            try:
+                message: str = self.messageQueue.get(block=True,timeout=self.timeLimit)
+            except Empty:
+                logging.warning("Timed out on write queue")
+                if self.forceQuit:
+                    break
             
 
             _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
@@ -130,14 +142,19 @@ class Communication:
     def run(self):
         self.messageQueue.queue.clear()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(5)
+            s.settimeout(10)
 
             try:
                 s.connect((self.address, self.port))
-            except (socket.timeout, ConnectionRefusedError):
+            except (socket.timeout):
                 logging.error("Timeout on establishing connection")
                 self.GUI.setErrorScene("Couldn't connect to the server", True)
                 return
+            except  ConnectionRefusedError:
+                logging.error("Connection refused")
+                self.GUI.setErrorScene("Couldn't connect to the server", True)
+                return
+                
             readerThread = threading.Thread(target=self.listen, args=(s,))
             writerThread = threading.Thread(target=self.write, args=(s,))
 
@@ -146,6 +163,7 @@ class Communication:
 
             readerThread.join()
             writerThread.join()
+            logging.info("Communication thread finished")
 
     def handleMessage(self, msg: "Message") -> None:
         logging.info(
