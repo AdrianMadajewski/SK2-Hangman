@@ -293,7 +293,6 @@ class MainWindow(qtw.QDialog):
 
         if isAlive:
             self.sender().hide()
-            print(self.sender())
 
             if letter in self.password:
                 self.com.addTexttoQueue(Message("1", Message.GUESS))

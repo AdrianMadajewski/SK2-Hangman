@@ -191,7 +191,7 @@ class Communication:
                 )
             else:
                 self.GUI.passwordLabel.setText(
-                    " ".join(self.GUI.guessedpassword) + "\n\nYou Lost! ;-)"
+                    " ".join(self.GUI.guessedpassword) + "\n\nYou Lost! ;-)\n" + f"{msg.text} won the game"
                 )
         elif msg.code == msg.RESET:
             self.GUI.goBack(playerisSending=False)
