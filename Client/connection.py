@@ -69,7 +69,7 @@ class Communication:
                 if chunk == b"":
                     s.close()
                     logging.warning("Connection closed")
-                    if self.GUI.QtStack.currentWidget() == self.GUI.GameScene:
+                    if self.GUI.QtStack.currentWidget() in (self.GUI.WaitingRoom,self.GUI.GameScene):
                         self.GUI.setErrorScene(
                             "Server closed connection", allowReconnect=True
                         )
