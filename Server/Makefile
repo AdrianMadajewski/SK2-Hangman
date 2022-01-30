@@ -1,7 +1,7 @@
 
 FILES:=$(wildcard *.cpp)
 FILENAME=server
-FLAGS=--std=c++17 -Wall -Wextra -Wcast-function-type
+FLAGS=--std=c++17 -Wall -Wextra
 
 main_file: $(FILES) 
 	g++ -g -o $(FILENAME) $(FILES) $(FLAGS);
