@@ -1,4 +1,5 @@
 import logging
+from multiprocessing.sharedctypes import Value
 import select
 import socket
 import threading
@@ -30,9 +31,11 @@ class Communication:
 
     def listen(self, s: socket):
         while self.connectionStable:
-            
-            ready_to_read_message, _, _ = select.select([s], [], [], self.timeLimit)
-            
+            try:
+                ready_to_read_message, _, _ = select.select([s], [], [], self.timeLimit)
+            except ValueError:
+                logging.info("connection closed,cant read")
+                return 
             if ready_to_read_message:
 
                 msg_size_bytes = self.read_n_bytes(s, 2)
@@ -41,8 +44,8 @@ class Communication:
                         msg_size = int(msg_size_bytes.decode("UTF-8"))
                     except AttributeError:
                         logging.error("Received unknown message")
-
-                if self.connectionStable:
+                
+                if self.connectionStable and msg_size_bytes:
                     message = self.read_n_bytes(s, msg_size).decode("UTF-8")
                     self.handleMessage(Message(message))
 
@@ -64,16 +67,20 @@ class Communication:
                 self.GUI.QtStack.setWindowTitle("Hangman!")
 
                 if chunk == b"":
+                    s.close()
                     logging.warning("Connection closed")
-                    if self.GUI.forceCancel:
-                        self.GUI.forceCancel=True
-                        return None
-
-                    if self.GUI.QtStack.currentWidget() != self.GUI.ErorrScene:
+                    if self.GUI.QtStack.currentWidget() == self.GUI.GameScene:
                         self.GUI.setErrorScene(
                             "Server closed connection", allowReconnect=True
                         )
+                    if self.GUI.forceCancel:
+                        self.GUI.forceCancel=True
+                    else:
+                        self.connectionStable = False
+
                     return None
+                    
+                    
 
             except socket.timeout as e:
 
@@ -124,8 +131,11 @@ class Communication:
                 if self.forceQuit:
                     break
             
-
-            _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
+            try:
+                _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
+            except ValueError:
+                logging.info("connection closed,cant write")
+                return 
 
             if ready_to_write:
 

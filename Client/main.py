@@ -349,9 +349,10 @@ class MainWindow(qtw.QDialog):
         
     def exitHandler(self):
         logging.info("Exit Handler triggered")
-        self.com.messageQueue = Queue()
-        self.com.conectionStable=False
-        self.com.forceQuit = True
+        if self.com is not None:
+            self.com.messageQueue = Queue()
+            self.com.conectionStable=False
+            self.com.forceQuit = True
                         
     
 
