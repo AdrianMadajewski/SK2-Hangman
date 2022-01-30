@@ -34,7 +34,7 @@ namespace MyRandom
 
 void error(const std::string &message, ErrorCode error = ErrorCode::FAILURE);
 void setReuseAddress(int socket);
-void ctrl_c(const int, int server_socket);
+void ctrl_c(int);
 uint16_t readPort(const char *string);
 std::vector<std::string> getFileContents(const std::string &filename);
 

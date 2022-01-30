@@ -1,5 +1,7 @@
 #include "Utility.h"
 
+int server_socket;
+
 void error(const std::string &message, ErrorCode error)
 {
     switch(error)
@@ -38,7 +40,7 @@ uint16_t readPort(const char *string)
     return port;
 }
 
-void ctrl_c(int, int server_socket)
+void ctrl_c(int)
 {
     for(Client * client : Client::getClients())
     {

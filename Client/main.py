@@ -1,4 +1,7 @@
+import signal
+
 import logging
+from queue import Queue
 import sys
 import threading
 import warnings
@@ -11,9 +14,9 @@ from PyQt5.QtGui import QIcon, QPixmap
 from connection import Communication, Message
 from FlowLayout import FlowLayout
 
-warnings.simplefilter("ignore")
 
-logging.basicConfig()
+logging.basicConfig(format='%(asctime)s %(levelname)s %(funcName)s: %(message)s',
+)
 logging.root.setLevel(logging.INFO)
 directory = dirname(__file__)
 
@@ -27,6 +30,8 @@ class MainWindow(qtw.QDialog):
     connected = False
     playersCount = 0
     nickname = ""
+    MessageQueueCopy = None
+    forceCancel = False
 
     def __init__(self):
 
@@ -110,7 +115,7 @@ class MainWindow(qtw.QDialog):
         btn.setDown(True)
         btn.setStyleSheet('color: "#E5E5E5"')
         # FIXME: READY MESSAGE TO SERVER
-        self.com.addTexttoQueue(Message("", Message.ready_code))
+        self.com.addTexttoQueue(Message("", Message.HOST_READY))
 
     def updatePlayersInfo(self):
         if self.playersCount == 1:
@@ -130,7 +135,6 @@ class MainWindow(qtw.QDialog):
         readyButton = qtw.QPushButton("I'm Ready")
         cancelButton = qtw.QPushButton("Cancel")
         self.ready = readyButton.isChecked()
-
         layout.addWidget(textLabel, 0, 0)
         layout.addWidget(playersCountLabel, 1, 0)
         layout.addWidget(readyButton)
@@ -157,32 +161,35 @@ class MainWindow(qtw.QDialog):
 
     def reconnect(self):
 
-        self.com = Communication(GUIReference=self, address=self.ip, port=self.port)
+        self.com = Communication(GUIReference=self, address=self.ip, port=self.port,queue = self.MessageQueueCopy)
         threading.Thread(target=self.com.run).start()
 
         with open(f"{directory}/id.txt", "r") as f:
             self.id = f.readline()
         self.com.isHost = id == 0
-        self.com.addTexttoQueue(Message(str(self.id), code=Message.reconnect_code))
+        self.com.addTexttoQueue(Message(str(self.id), code=Message.RECONNECT))
         logging.info("Reconnect Attempt")
 
     def cancelConnection(self):
         self.QtStack.setCurrentWidget(self.WelcomeScene)
-        self.com.connectionStable = False
-        self.com = None
+        self.forceCancel = True
+        if self.com is not None:
+            self.com.addTexttoQueue(Message("",Message.REMOVE))
+            self.com.connectionStable = False
+            self.MessageQueueCopy = self.com.messageQueue
+            self.com = None
+
 
     def goToWaitingRoom(self, text: str, name: str, hostButton=False):
 
-        if not (name.text().isalnum()):
-            name.setText("Please enter valid nickname")
-            return
 
         # initialize comunication
 
         self.QtStack.setCurrentWidget(self.WaitingRoom)
 
+        
         self.com = Communication(
-            GUIReference=self, address=self.ip, port=self.port, isHost=hostButton
+            GUIReference=self, address=self.ip, port=self.port, isHost=hostButton,queue = self.MessageQueueCopy
         )
 
         threading.Thread(target=self.com.run).start()
@@ -190,10 +197,16 @@ class MainWindow(qtw.QDialog):
         self.WaitingRoom.findChild(qtw.QLabel).setText("Waiting for other players...")
         self.nickname = name.text()
         if hostButton:
-            msg = Message(self.nickname, Message.new_host)
+            self.GameScene.findChildren(qtw.QPushButton)[-1].show()
+            
+            self.WaitingRoom.findChild(qtw.QPushButton).show()
+            
+            msg = Message(self.nickname, Message.HOST_INIT)
         else:
+            self.GameScene.findChildren(qtw.QPushButton)[-1].hide()
+            
             self.WaitingRoom.findChild(qtw.QPushButton).hide()
-            msg = Message(self.nickname, Message.new_player)
+            msg = Message(self.nickname, Message.NEW_PLAYER)
 
         self.com.addTexttoQueue(msg)
 
@@ -202,7 +215,7 @@ class MainWindow(qtw.QDialog):
         self.playersTable.setRowCount(0)
         # FIXME: format score pewnie sie zmieni na cos w stylu trafione/stracone wiec klucz bedize do zmiany
         # ale działa póki co
-        for desc, price in sorted(self.playersDict.items(), key=lambda x: -x[1][0]/x[1][1] if x[1][1]>0 else -x[1][0]):
+        for desc, price in sorted(self.playersDict.items(), key=lambda x: x[1][0]/x[1][1] if x[1][1]>0 else x[1][0]):
             self.playersTable.insertRow(0)
             name = qtw.QTableWidgetItem(desc)
             name.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
@@ -240,11 +253,8 @@ class MainWindow(qtw.QDialog):
         hangmanLayout.addWidget(self.passwordLabel, 20)
         lettersWidget = qtw.QWidget()
         self.letterLayout = FlowLayout()
-        for letter in self.alphabet:
-
-            letterButton = LetterButton(letter)
-            letterButton.clicked.connect(self.gameLogic)
-            self.letterLayout.addWidget(letterButton)
+        self.generateLetters()
+        
 
         self.setImage()
         lettersWidget.setLayout(self.letterLayout)
@@ -256,38 +266,40 @@ class MainWindow(qtw.QDialog):
         # gameMainWidget.setStyleSheet("background-color:red;")
         layout.addWidget(gameMainWidget, 0, 2, 5, 5)
         goBackToLobby = qtw.QPushButton("Go Back!")
-        goBackToLobby.clicked.connect(self.goBack)
+        goBackToLobby.clicked.connect(lambda :self.goBack(True))
         layout.addWidget(goBackToLobby, 6, 6, 1, 1)
 
         self.GameScene.setLayout(layout)
 
-    def goBack(self):
+    def goBack(self,playerisSending = True):
         self.QtStack.setCurrentWidget(self.WaitingRoom)
-
-        self.guessedpassword = ["_" for _ in self.password]
-        self.passwordLabel.setText(" ".join(self.guessedpassword))
-        self.passwordLabel
-
-        self.playersTable = {}
-        self.lifeCounter = -len(self.alphabet)
-        self.deleteAllLetters()
-        for letter in self.alphabet:
-
-            letterButton = LetterButton(letter)
-            letterButton.clicked.connect(self.gameLogic)
-            self.letterLayout.addWidget(letterButton)
+    
+        self.playersDict = {key:(0,0) for key in self.playersDict}
+        self.lifeCounter = 0
+        self.hideAllLetters()
+        
+        if playerisSending: #To prevent loops of messages
+            self.com.addTexttoQueue(Message("",Message.RESET))
+            
+            
         self.setImage()
-
+        
+    def generateLetters(self):
+            for letter in self.alphabet:
+                letterButton = LetterButton(letter)
+                letterButton.clicked.connect(self.gameLogic)
+                self.letterLayout.addWidget(letterButton)
+                
     def gameLogic(self):
 
         letter = self.sender().text()
         isAlive = 0 <= self.lifeCounter < 4
 
         if isAlive:
-            self.sender().deleteLater()
+            self.sender().hide()
 
             if letter in self.password:
-                self.com.addTexttoQueue(Message("1", Message.guessed_letter))
+                self.com.addTexttoQueue(Message("1", Message.GUESS))
 
                 for id in self.findAllOccurencies(letter):
                     self.guessedpassword[id] = letter
@@ -300,7 +312,7 @@ class MainWindow(qtw.QDialog):
                         " ".join(self.guessedpassword) + "\n\nYou Won!"
                     )
             else:
-                self.com.addTexttoQueue(Message("0", Message.guessed_letter))
+                self.com.addTexttoQueue(Message("0", Message.GUESS))
                 self.lifeCounter += 1
                 self.setImage(self.lifeCounter)
 
@@ -315,13 +327,17 @@ class MainWindow(qtw.QDialog):
         pixmap = QPixmap(self.life[id])
         self.HangmanImage.setPixmap(pixmap.scaled(256, 256))
 
-    def deleteAllLetters(self):
-        for id in range(self.letterLayout.count()):
-            self.letterLayout.itemAt(id).widget().deleteLater()
+    def hideAllLetters(self,hide = True):
+        if hide:
+            for id in range(self.letterLayout.count()):
+                self.letterLayout.itemAt(id).widget().hide()
+        else:
+            for id in range(self.letterLayout.count()):
+                self.letterLayout.itemAt(id).widget().show()
 
-    def disableAllLetters(self):
+    def disableAllLetters(self,disable = True):
         for id in range(self.letterLayout.count()):
-            self.letterLayout.itemAt(id).widget().setDisabled(True)
+            self.letterLayout.itemAt(id).widget().setDisabled(disable)
 
     def findAllOccurencies(self, letter: str) -> list[int]:
         return [i for i, l in enumerate(self.password) if l == letter]
@@ -330,11 +346,15 @@ class MainWindow(qtw.QDialog):
         self.password = password.upper()
         self.guessedpassword = ["_" for _ in password]
         self.passwordLabel.setText(" ".join(self.guessedpassword))
-
-    def terminate(self):
-        Qt.QCoreApplication.quit()
-        # TODO: FORCE APP TO QUIT
-
+        
+    def exitHandler(self):
+        logging.info("Exit Handler triggered")
+        if self.com is not None:
+            self.com.messageQueue = Queue()
+            self.com.conectionStable=False
+            self.com.forceQuit = True
+                        
+    
 
 class LetterButton(qtw.QPushButton):
     def __init__(self, text: str):
@@ -342,8 +362,13 @@ class LetterButton(qtw.QPushButton):
         self.setText(text)
         self.animateClick(1)
 
-
+    
+    
+    
+    
 if __name__ == "__main__":
     app = qtw.QApplication([])
     w = MainWindow()
+    app.aboutToQuit.connect(lambda : MainWindow.exitHandler(w))
+    
     sys.exit(app.exec())
