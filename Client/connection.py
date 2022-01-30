@@ -11,7 +11,7 @@ directory = dirname(__file__)
 
 class Communication:
     messageQueue: Queue = Queue()
-    timeLimit: int = 60
+    timeLimit: int = 120
     connectionStable: bool = True
     forceQuit = False
     def __init__(
@@ -130,7 +130,6 @@ class Communication:
                 logging.warning("Timed out on write queue")
                 self.mysendall(s,str(Message("",Message.REMOVE)).encode("UTF-8"))            
                 self.GUI.hideAllLetters(False)
-                
                 self.GUI.lifeCounter = 0
                 self.GUI.setImage()
                 self.GUI.setErrorScene("Kicked out due to inactivity")
