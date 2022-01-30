@@ -28,7 +28,6 @@ class MainWindow(qtw.QDialog):
     guessedpassword = ["_" for _ in password]
     passwordLabel = 0
     connected = False
-    playersCount = 0
     nickname = ""
     MessageQueueCopy = None
     forceCancel = False
@@ -111,17 +110,13 @@ class MainWindow(qtw.QDialog):
 
         self.WelcomeScene.setLayout(layout)
 
-    def setReady(self, btn: qtw.QPushButton):
-        btn.setDown(True)
-        btn.setStyleSheet('color: "#E5E5E5"')
-        # FIXME: READY MESSAGE TO SERVER
+    def setReady(self):
+        
         self.com.addTexttoQueue(Message("", Message.HOST_READY))
 
     def updatePlayersInfo(self):
-        if self.playersCount == 1:
-            self.playersCountInfo.setText("Currently 1 player")
-        else:
-            self.playersCountInfo.setText(f"Currently {self.playersCount} players")
+        
+        self.playersCountInfo.setText(f"Currently {len(self.playersDict)} players")
 
     def initWaitingRoom(self):
         self.ready = 0
@@ -141,7 +136,7 @@ class MainWindow(qtw.QDialog):
         layout.addWidget(cancelButton)
 
         cancelButton.clicked.connect(self.cancelConnection)
-        readyButton.clicked.connect(lambda: self.setReady(readyButton))
+        readyButton.clicked.connect(self.setReady)
         self.WaitingRoom.setLayout(layout)
 
     def initErrorScene(self):

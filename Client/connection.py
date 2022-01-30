@@ -11,7 +11,7 @@ directory = dirname(__file__)
 
 class Communication:
     messageQueue: Queue = Queue()
-    timeLimit: int = 15
+    timeLimit: int = 60
     connectionStable: bool = True
     forceQuit = False
     def __init__(
@@ -189,6 +189,7 @@ class Communication:
 
         if msg.code == msg.NEW_PLAYER:
             self.GUI.playersDict[msg.text] = (0, 0)
+            self.GUI.updatePlayersInfo()
             # if msg.text.isnumeric():  # received id, need to save it to file
             #     with open(f"{directory}/id.txt", "w+") as f:
             #         f.write(msg.text)
