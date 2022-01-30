@@ -39,7 +39,7 @@ class MainWindow(qtw.QDialog):
 
         self.setWindowIcon(QIcon(f"{directory}/resources/LogoBlue.png"))
         self.setupUi()
-        with open("config.txt", "r+") as f:
+        with open(f"{directory}/config.txt", "r+") as f:
             self.ip = f.readline()[:-1]
             self.port = int(f.readline())
 
