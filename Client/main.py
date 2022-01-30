@@ -6,7 +6,7 @@ import sys
 import threading
 import warnings
 from os.path import exists,dirname
-
+from PyQt5 import QtGui
 import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIcon, QPixmap
@@ -79,8 +79,10 @@ class MainWindow(qtw.QDialog):
         hostButton = qtw.QPushButton("I'm a host")
         connectButton = qtw.QPushButton("I want to join")
 
-        nameField = qtw.QLineEdit()
-        nameField.setMaxLength(20)  # set max name legnth to 20 chars
+        nameField = qtw.QLineEdit(self)
+        
+        validator = QtGui.QRegExpValidator(QtCore.QRegExp("[a-zA-Z0-9]+"),nameField)
+        nameField.setValidator(validator)
         nameField.setPlaceholderText("Enter nickname:")
         nameField.setMinimumWidth(100)
         nameField.setAlignment(QtCore.Qt.AlignCenter)
@@ -179,7 +181,8 @@ class MainWindow(qtw.QDialog):
 
     def goToWaitingRoom(self, text: str, name: str, hostButton=False):
 
-
+        if name.text()=="":
+            return
         # initialize comunication
 
         self.QtStack.setCurrentWidget(self.WaitingRoom)
