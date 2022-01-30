@@ -171,9 +171,11 @@ class MainWindow(qtw.QDialog):
         logging.info("Reconnect Attempt")
 
     def cancelConnection(self):
+        
         self.QtStack.setCurrentWidget(self.WelcomeScene)
         self.forceCancel = True
         if self.com is not None:
+            self.com.sock.close()
             self.com.addTexttoQueue(Message("",Message.REMOVE))
             self.com.connectionStable = False
             self.MessageQueueCopy = self.com.messageQueue

@@ -128,8 +128,13 @@ class Communication:
                 message: str = self.messageQueue.get(block=True,timeout=self.timeLimit)
             except Empty:
                 logging.warning("Timed out on write queue")
-                if self.forceQuit:
-                    break
+                self.mysendall(s,str(Message("",Message.REMOVE)).encode("UTF-8"))            
+                self.GUI.hideAllLetters(False)
+                
+                self.GUI.lifeCounter = 0
+                self.GUI.setImage()
+                self.GUI.setErrorScene("Kicked out due to inactivity")
+                s.close()
             
             try:
                 _, ready_to_write, _ = select.select([], [s], [], self.timeLimit)
@@ -144,6 +149,8 @@ class Communication:
 
             else:
                 logging.warning("timed out on write Queue")
+                self.GUI.cancelConnection()
+                self.GUI.setErrorScene("Kicked due to inactivity")
                 # TODO: handling timeout + change time limit to 30(?)
 
     def addTexttoQueue(self, text):
@@ -153,7 +160,7 @@ class Communication:
         self.messageQueue.queue.clear()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(10)
-
+            self.sock = s
             try:
                 s.connect((self.address, self.port))
             except (socket.timeout):
