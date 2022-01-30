@@ -8,7 +8,6 @@ void ServerHandler::handleEvent(uint32_t events) {
         int client_fd = accept(m_socket, (sockaddr*)&client_address, &client_address_size);
         if(client_fd == -1) error("Accept failed", ErrorCode::FATAL);
 
-        // Oddajemy sterowanie do poszczegolnych klientow
         Client *client = new Client(client_fd, client_address);
 
         std::cout << client->currentConnectionInfo() << " New connection established" << std::endl;
@@ -16,7 +15,7 @@ void ServerHandler::handleEvent(uint32_t events) {
 
     if(events & ~EPOLLIN) {
         error("Event " + std::to_string(events) + " on server socket");
-        ctrl_c(m_socket);
+        ctrl_c(SIGINT);
     }
  }
 

@@ -19,6 +19,7 @@
 
 class Client : public Handler
 {
+    // Buffer utill
     struct Buffer
     {
         bool message_length_read = false;
@@ -32,11 +33,8 @@ class Client : public Handler
         ssize_t remaining() { return length - position; }
         char *dataCurrentPosition() { return data + position; }
 
-        ssize_t gotten_length;
-        int current_message_length = 0;
-
         char *data;
-        ssize_t length = 32;
+        ssize_t length = 32; // Default message length
         ssize_t position = 0;
     };
 
@@ -99,8 +97,6 @@ private:
 
     sockaddr_in m_address;
     std::string m_nickname;
-
-
 };
 
 #endif

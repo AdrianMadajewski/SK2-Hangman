@@ -5,7 +5,7 @@
 
 #include <error.h>
 #include <errno.h>
-#include <signal.h> // SIGIT
+#include <signal.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -15,8 +15,7 @@
 #include <fcntl.h>
 
 extern int epoll_fd;
-
-// ZROB SOBIE MAKEFILE CIOTO #ten mądry zrobił
+extern int server_socket;
 
 int main(int argc, char **argv)
 {
@@ -29,15 +28,16 @@ int main(int argc, char **argv)
     std::vector<std::string> config = getFileContents(std::string(argv[1]));
 
     long server_port = readPort(config[1].c_str());
-    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(server_socket == -1) error("Server socket initial failure", ErrorCode::FATAL);
     setReuseAddress(server_socket);
 
-    // Set sigint to call ctrl_c as a handler
-    signal(SIGINT, (void(*)(int))ctrl_c);
-
+    
     // Ignore sigpipe signal
     signal(SIGPIPE, SIG_IGN);
+     // Set sigint to call ctrl_c as a handler
+    signal(SIGINT, ctrl_c);
+   
 
     std::cout << "[SERVER]: Server socket created with initalized settings" << std::endl;
 
@@ -70,8 +70,6 @@ int main(int argc, char **argv)
 
     ServerHandler server(server_socket);
 
-    int flags = fcntl(server_socket, F_GETFL);
-
     epoll_fd = epoll_create1(0);
     epoll_event ee {EPOLLIN, {.ptr = &server}};
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &ee);
@@ -84,7 +82,7 @@ int main(int argc, char **argv)
 
         if(epoll_wait(epoll_fd, &ee, 1, -1) == -1 && errno != EINTR ) {
             ::error(0, errno, "Epoll wait failed");
-            ctrl_c(SIGINT, server_socket);
+            ctrl_c(SIGINT);
         }
 
         ((Handler*)ee.data.ptr)->handleEvent(ee.events);

@@ -7,22 +7,20 @@
 
 enum MessageCode
 {
-    ERROR = -1, //unhandled
-    HOST_INIT = 0, // ok
-    NEW_PLAYER = 1, // ok
-    NICK_TAKEN = 2, // ok
-    HOST_READY = 3, // ok
-    PASSWORD = 4, // ok
-    GUESS = 5, // ok
-    WINNER = 6, // ok
-    RESET = 7, // ok - tego nie handluje gdybys ty od siebie chcial zresetowac
-    RECONNECT = 8, // TODO:
-    REMOVE = 9, // ok
+    ERROR = -1, 
+    HOST_INIT = 0, 
+    NEW_PLAYER = 1, 
+    NICK_TAKEN = 2, 
+    HOST_READY = 3, 
+    PASSWORD = 4,
+    GUESS = 5, 
+    WINNER = 6, 
+    RESET = 7, 
+    RECONNECT = 8, 
+    REMOVE = 9, 
 };
 
 std::string MessageCodeToString(MessageCode code);
-
-// TODO: id klientow moze wiec wieksze > 9 ale id jest w sumie totalnie nie wazne to jebac
 
 class MessageBuilder
 {

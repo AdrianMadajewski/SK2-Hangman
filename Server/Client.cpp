@@ -8,7 +8,7 @@ int epoll_fd;
 
 void Client::waitForWrite(bool epollout)
 {
-    epoll_event ee{EPOLLIN | EPOLLRDHUP | (epollout == true ? EPOLLOUT : 0), {.ptr = this}};
+    epoll_event ee{EPOLLIN | EPOLLRDHUP | (epollout == true ? static_cast<int>(EPOLLOUT) : 0), {.ptr = this}};
     epoll_ctl(epoll_fd, EPOLL_CTL_MOD, m_socket, &ee);
 }
 
@@ -61,7 +61,7 @@ void Client::handleEvent(uint32_t events)
     {
         if (readBuffer.message_length_read)
         {
-            ssize_t count = read(m_socket, readBuffer.dataCurrentPosition(), readBuffer.current_message_length);
+            ssize_t count = read(m_socket, readBuffer.dataCurrentPosition(), readBuffer.length);
             if (count <= 0)
                 events |= EPOLLERR;
             else
@@ -69,7 +69,7 @@ void Client::handleEvent(uint32_t events)
                 // Read count bytes to position
                 readBuffer.position += count;
 
-                if (readBuffer.position == readBuffer.current_message_length)
+                if (readBuffer.position == readBuffer.length)
                 {
                     std::cout << currentConnectionInfo() << " Full message received" << std::endl;
                     // Got full message
@@ -77,12 +77,12 @@ void Client::handleEvent(uint32_t events)
                     std::string message_received{};
 
                     // Read message length bytes
-                    for (int i = 1; i < readBuffer.current_message_length; i++)
+                    for (int i = 1; i < readBuffer.length; i++)
                     {
                         message_received += readBuffer.data[i];
                     }
 
-                    MessageBuilder message(code, message_received, readBuffer.current_message_length);
+                    MessageBuilder message(code, message_received, readBuffer.length);
                     std::cout << currentConnectionInfo() << " Message received: " << std::endl;
                     std::cout << message << std::endl;
 
@@ -90,7 +90,7 @@ void Client::handleEvent(uint32_t events)
                     handleReceivedMessage(message);
 
                     // Empty data buffer
-                    readBuffer.current_message_length = 0;
+                    readBuffer.length = 0;
                     readBuffer.position = 0;
                     readBuffer.message_length_read = false;
                 }
@@ -105,7 +105,6 @@ void Client::handleEvent(uint32_t events)
                 events |= EPOLLERR;
             else
             {
-
                 readBuffer.position += count;
 
                 // If read 2 bytes (message size) and message size was not setted yet
@@ -113,9 +112,10 @@ void Client::handleEvent(uint32_t events)
                 {
                     std::cout << currentConnectionInfo() << " Received incoming message length" << std::endl;
                     // Set message length
-                    readBuffer.current_message_length = (readBuffer.data[0] - '0') * 10 + (readBuffer.data[1] - '0');
+                    readBuffer.length = (readBuffer.data[0] - '0') * 10 + (readBuffer.data[1] - '0');
                     // Proceed to read after 2 bytes of message length
-                    readBuffer.position = 0;
+                    readBuffer.position = 0; 
+                    // New message would be overwriten
                     readBuffer.message_length_read = true;
                 }
             }
@@ -196,7 +196,7 @@ void Client::handleReceivedMessage(const MessageBuilder &info)
         break;
     case ERROR:
     default:
-        // Handle this error
+        error("Handle received message errorr", ErrorCode::FAILURE);
         break;
     }
 }
@@ -227,14 +227,13 @@ void Client::newHost(const std::string &nickname)
         this->setNickname(nickname);
         this->m_host = true;
 
-        //Żeby host sie dowiedział o sobie
+        // Żeby host sie dowiedział o sobie
         MessageBuilder sendNickBack(
-        MessageCode::NEW_PLAYER,
-        this->m_nickname,
-        this->m_nickname.size());
+            MessageCode::NEW_PLAYER,
+            this->m_nickname,
+            this->m_nickname.size()
+        );
         sendToOne(this, sendNickBack);
-
-
     }
 }
 void Client::setNickname(const std::string &nickname)
@@ -352,12 +351,10 @@ void Client::guessed_letter(const std::string &message)
     // Check for looser
     if (this->m_missed == MAX_GUESS)
     {
-        // Michalek mowi zeby go nie usuwac z lobby bo on sobie bedzie liczyl a ja uwazam inaczej :((
         return;
     }
 
     
-
     // Update all clients with ranking
     // nick:{trafione}:{nietrafione}
 
@@ -390,8 +387,7 @@ void Client::reset()
 
 void Client::setNewWord()
 {
-    // int dice = MyRandom::generateNumber(0, words.size() - 1);
-    // s_word = words[dice];
+    s_index = MyRandom::generateNumber(0, s_words.size() - 1);
 }
 
 std::unordered_set<Client *> Client::getClients()
